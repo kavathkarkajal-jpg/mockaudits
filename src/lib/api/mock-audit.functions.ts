@@ -415,6 +415,117 @@ export const resetUserPassword = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// ------- Questions: list for a brand (any authenticated user) -------
+export const listQuestionsForBrand = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ brand_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("audit_questions")
+      .select("id, brand_id, question_text, question_type, display_order")
+      .eq("brand_id", data.brand_id)
+      .order("display_order", { ascending: true });
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
+// ------- ADMIN: questions list (all brands) -------
+export const adminListQuestions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { data, error } = await context.supabase
+      .from("audit_questions")
+      .select("id, brand_id, question_text, question_type, display_order")
+      .order("brand_id")
+      .order("display_order", { ascending: true });
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+const QuestionTypeEnum = z.enum(["yes_no"]);
+
+export const upsertQuestion = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        id: z.string().uuid().optional(),
+        brand_id: z.string().uuid(),
+        question_text: z.string().min(1).max(1000),
+        question_type: QuestionTypeEnum.default("yes_no"),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    if (data.id) {
+      const { error } = await context.supabase
+        .from("audit_questions")
+        .update({
+          question_text: data.question_text,
+          question_type: data.question_type,
+        })
+        .eq("id", data.id);
+      if (error) throw new Error(error.message);
+    } else {
+      // Append at end of brand
+      const { data: maxRow } = await context.supabase
+        .from("audit_questions")
+        .select("display_order")
+        .eq("brand_id", data.brand_id)
+        .order("display_order", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const nextOrder = (maxRow?.display_order ?? -1) + 1;
+      const { error } = await context.supabase.from("audit_questions").insert({
+        brand_id: data.brand_id,
+        question_text: data.question_text,
+        question_type: data.question_type,
+        display_order: nextOrder,
+      });
+      if (error) throw new Error(error.message);
+    }
+    return { ok: true };
+  });
+
+export const deleteQuestion = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { error } = await context.supabase
+      .from("audit_questions")
+      .delete()
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const reorderQuestions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        brand_id: z.string().uuid(),
+        ordered_ids: z.array(z.string().uuid()).min(1).max(500),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    // Update each row's display_order. Small N expected per brand.
+    for (let i = 0; i < data.ordered_ids.length; i++) {
+      const { error } = await context.supabase
+        .from("audit_questions")
+        .update({ display_order: i })
+        .eq("id", data.ordered_ids[i])
+        .eq("brand_id", data.brand_id);
+      if (error) throw new Error(error.message);
+    }
+    return { ok: true };
+  });
+
 // ------- helpers -------
 function synthEmail(storeCode: string) {
   return `${storeCode.toLowerCase()}@mockaudit.app`;

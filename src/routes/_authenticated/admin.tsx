@@ -5,14 +5,16 @@ import { useState } from "react";
 import {
   adminListAll, upsertBrand, deleteBrand, upsertStore, deleteStore,
   upsertEmployee, deleteEmployee, createUser, deleteUser, getMyProfile,
+  adminListQuestions, upsertQuestion, deleteQuestion, reorderQuestions,
 } from "@/lib/api/mock-audit.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Pencil, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: async () => {
@@ -41,11 +43,7 @@ function AdminPage() {
         <TabsContent value="stores"><StoresTab brands={data?.brands ?? []} stores={data?.stores ?? []}/></TabsContent>
         <TabsContent value="employees"><EmployeesTab stores={data?.stores ?? []} employees={data?.employees ?? []}/></TabsContent>
         <TabsContent value="users"><UsersTab brands={data?.brands ?? []} stores={data?.stores ?? []} profiles={data?.profiles ?? []} roles={data?.roles ?? []}/></TabsContent>
-        <TabsContent value="questions">
-          <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
-            Questionnaire builder coming soon.
-          </div>
-        </TabsContent>
+        <TabsContent value="questions"><QuestionsTab brands={data?.brands ?? []}/></TabsContent>
       </Tabs>
     </div>
   );
@@ -198,6 +196,140 @@ function RowsTable({ rows, columns, onDelete }: { rows: any[]; columns: { k: str
           {rows.length === 0 && <tr><td colSpan={columns.length + 1} className="py-6 text-center text-muted-foreground">No records yet.</td></tr>}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function QuestionsTab({ brands }: { brands: Array<{ id: string; name: string }> }) {
+  const qc = useQueryClient();
+  const fetchAll = useServerFn(adminListQuestions);
+  const save = useServerFn(upsertQuestion);
+  const del = useServerFn(deleteQuestion);
+  const reorder = useServerFn(reorderQuestions);
+
+  const [brandId, setBrandId] = useState<string>("");
+  const [text, setText] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const { data: all } = useQuery({
+    queryKey: ["admin-questions"],
+    queryFn: () => fetchAll(),
+  });
+
+  const list = (all ?? [])
+    .filter((q) => q.brand_id === brandId)
+    .sort((a, b) => a.display_order - b.display_order);
+
+  const inv = () => qc.invalidateQueries({ queryKey: ["admin-questions"] });
+  const invBrand = () => {
+    inv();
+    qc.invalidateQueries({ queryKey: ["questions", brandId] });
+  };
+
+  const m = useMutation({
+    mutationFn: () =>
+      save({
+        data: {
+          id: editingId ?? undefined,
+          brand_id: brandId,
+          question_text: text,
+          question_type: "yes_no",
+        },
+      }),
+    onSuccess: () => {
+      toast.success(editingId ? "Question updated" : "Question added");
+      setText("");
+      setEditingId(null);
+      invBrand();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const d = useMutation({
+    mutationFn: (id: string) => del({ data: { id } }),
+    onSuccess: () => { toast.success("Question deleted"); invBrand(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const moveMut = useMutation({
+    mutationFn: (ordered_ids: string[]) =>
+      reorder({ data: { brand_id: brandId, ordered_ids } }),
+    onSuccess: () => invBrand(),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const move = (idx: number, dir: -1 | 1) => {
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= list.length) return;
+    const ids = list.map((q) => q.id);
+    [ids[idx], ids[newIdx]] = [ids[newIdx], ids[idx]];
+    moveMut.mutate(ids);
+  };
+
+  return (
+    <div className="space-y-4 mt-4">
+      <div className="rounded-xl border bg-card p-4">
+        <Label>Brand</Label>
+        <Select value={brandId} onValueChange={(v) => { setBrandId(v); setEditingId(null); setText(""); }}>
+          <SelectTrigger className="max-w-xs"><SelectValue placeholder="Select a brand"/></SelectTrigger>
+          <SelectContent>
+            {brands.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {brandId && (
+        <>
+          <form
+            onSubmit={(e) => { e.preventDefault(); if (text.trim()) m.mutate(); }}
+            className="rounded-xl border bg-card p-4 space-y-3"
+          >
+            <Label htmlFor="qtext">{editingId ? "Edit question" : "New question"}</Label>
+            <Textarea id="qtext" value={text} onChange={(e) => setText(e.target.value)} rows={2} required maxLength={1000}/>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={m.isPending || !text.trim()}>
+                {editingId ? "Save changes" : "Add question"}
+              </Button>
+              {editingId && (
+                <Button type="button" variant="ghost" onClick={() => { setEditingId(null); setText(""); }}>
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </form>
+
+          <div className="rounded-xl border bg-card overflow-hidden">
+            {list.length === 0 ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">
+                No questions for this brand yet.
+              </div>
+            ) : (
+              <ol className="divide-y">
+                {list.map((q, idx) => (
+                  <li key={q.id} className="flex items-start gap-3 p-3">
+                    <div className="text-xs text-muted-foreground w-6 pt-2">{idx + 1}.</div>
+                    <div className="flex-1 text-sm pt-1.5">{q.question_text}</div>
+                    <div className="flex items-center gap-1">
+                      <Button size="icon" variant="ghost" disabled={idx === 0 || moveMut.isPending} onClick={() => move(idx, -1)}>
+                        <ArrowUp className="size-4"/>
+                      </Button>
+                      <Button size="icon" variant="ghost" disabled={idx === list.length - 1 || moveMut.isPending} onClick={() => move(idx, 1)}>
+                        <ArrowDown className="size-4"/>
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => { setEditingId(q.id); setText(q.question_text); }}>
+                        <Pencil className="size-4"/>
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => { if (confirm("Delete this question?")) d.mutate(q.id); }}>
+                        <Trash2 className="size-4"/>
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
