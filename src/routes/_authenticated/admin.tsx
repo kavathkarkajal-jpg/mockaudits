@@ -5,14 +5,16 @@ import { useState } from "react";
 import {
   adminListAll, upsertBrand, deleteBrand, upsertStore, deleteStore,
   upsertEmployee, deleteEmployee, createUser, deleteUser, getMyProfile,
+  adminListQuestions, upsertQuestion, deleteQuestion, reorderQuestions,
 } from "@/lib/api/mock-audit.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Pencil, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: async () => {
