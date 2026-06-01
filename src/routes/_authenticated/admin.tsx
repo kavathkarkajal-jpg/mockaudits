@@ -42,13 +42,16 @@ function AdminPage() {
           <TabsTrigger value="employees">Employees</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="questions">Questions</TabsTrigger>
+          <TabsTrigger value="import">Import</TabsTrigger>
         </TabsList>
         <TabsContent value="brands"><BrandsTab brands={data?.brands ?? []}/></TabsContent>
         <TabsContent value="stores"><StoresTab brands={data?.brands ?? []} stores={data?.stores ?? []}/></TabsContent>
         <TabsContent value="employees"><EmployeesTab stores={data?.stores ?? []} employees={data?.employees ?? []}/></TabsContent>
         <TabsContent value="users"><UsersTab brands={data?.brands ?? []} stores={data?.stores ?? []} profiles={data?.profiles ?? []} roles={data?.roles ?? []}/></TabsContent>
         <TabsContent value="questions"><QuestionsTab brands={data?.brands ?? []}/></TabsContent>
+        <TabsContent value="import"><ImportTab/></TabsContent>
       </Tabs>
+
     </div>
   );
 }
