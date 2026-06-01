@@ -20,24 +20,33 @@ export type Database = {
           created_at: string
           display_order: number
           id: string
+          max_score: number
+          options: Json
           question_text: string
           question_type: string
+          required: boolean
         }
         Insert: {
           brand_id?: string | null
           created_at?: string
           display_order?: number
           id?: string
+          max_score?: number
+          options?: Json
           question_text: string
           question_type?: string
+          required?: boolean
         }
         Update: {
           brand_id?: string | null
           created_at?: string
           display_order?: number
           id?: string
+          max_score?: number
+          options?: Json
           question_text?: string
           question_type?: string
+          required?: boolean
         }
         Relationships: [
           {

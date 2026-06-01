@@ -1,57 +1,84 @@
-# CSV Bulk Import (Admin Panel)
+## Goal
 
-## What gets built
+Turn the Admin → Questions builder into an MS Forms replica supporting multiple question types, per-option weights for scoring, and a Required toggle. The Conduct page renders each type natively and computes the audit score from those weights.
 
-A new **Import** tab inside `/admin` that lets an admin upload one CSV/XLSX file to sync brands, stores, store login passwords, and employees in one go.
+## Question types (MS Forms parity)
 
-## UI flow
+1. **Choice — single select** (radio)
+2. **Choice — multi-select** (checkboxes)
+3. **Text — short answer** (Input)
+4. **Text — long answer** (Textarea)
+5. **Rating — stars** (1–5 or 1–10, configurable max)
+6. **Rating — number** (1–N numeric pills)
+7. **Likert** (rows × scale columns: Strongly disagree … Strongly agree)
+8. **Yes/No** (kept for backward compatibility with existing questions)
+9. **Date** (date picker)
+10. **Ranking** (drag to reorder a fixed list)
 
-1. **Upload screen**
-   - "Download CSV template" button — generates a client-side Blob with the 7 headers + 1 example row, no server call.
-   - File picker accepting `.csv` and `.xlsx`. Parsed in the browser with `papaparse` / `xlsx`.
-2. **Preview screen** (after parse → calls `previewImport` server fn)
-   - Top summary chips: `X new brands · Y new stores · Z updated stores · A new employees · B updated employees · C passwords reset · N skipped`
-   - Per-row table with status badges (Create / Update / No change / Skip + reason)
-   - Errors panel listing all skipped rows with row number + reason
-   - **Confirm Import** / **Cancel** buttons
-3. **Result screen** (after `commitImport`)
-   - Final counts + "Download error log" (CSV of skipped rows)
-   - "Import another file" button to reset
+Each question also gets a **Required** toggle (cannot submit until answered).
 
-## Import logic (server-side)
+## Scoring model
 
-For each valid row, in order:
+- **Per-option weights.** Admin assigns a numeric weight to each choice / rating step / Likert column / ranked position. Weights can be 0 or negative.
+- Each question contributes `earned / max` × 100, then questions are averaged into the final 0–100 audit score (same `score` column on `audit_sessions` — no migration of historical data).
+- **Text / Date / Long answer**: informational only (no score contribution; excluded from average).
+- **Multi-select**: sum of selected option weights, capped at the question's max positive sum.
+- **Ranking**: weight is position-based (admin sets weight per rank slot).
+- **Required unanswered → submit disabled** (Conduct page validates).
 
-1. **Brand** — match by `name` (case-insensitive). Insert if missing.
-2. **Store** — match by `store_code`. Update `store_name`, `region`, `brand_id` if changed. Insert if missing.
-3. **Store login user** — match the profile by `store_code`:
-   - If exists → `supabaseAdmin.auth.admin.updateUserById(id, { password })`, refresh profile linkage.
-   - If missing → create auth user (`<storeCode>@mockaudit.app`), insert `profiles` + `user_roles` (role `store_manager`).
-4. **Employee** — match by `employee_code`. Update `name` / `store_id` if changed. Insert if missing.
+## Schema change (single migration)
 
-Each row wrapped in try/catch; one failure doesn't abort the batch.
+`audit_questions` table additions:
 
-## Validation rules
+- `question_type` enum widened (kept as `text` column, validated by Zod):
+  `yes_no | single_choice | multi_choice | short_text | long_text | rating_stars | rating_number | likert | date | ranking`
+- `options` `jsonb not null default '[]'` — flexible per-type payload:
+  - choice: `[{ label, weight }]`
+  - rating: `{ max: 5, weights: [0,1,2,3,4,5] }`
+  - likert: `{ statements: [..], scale: [{label, weight}, ...] }`
+  - ranking: `[{ label, weight }]` (weight = points for being placed at that rank index)
+  - text / date / yes_no: `[]` (yes_no scoring stays hard-coded yes=1/no=0 as today)
+- `required` `boolean not null default false`
+- `max_score` `numeric not null default 0` — precomputed at save time so Conduct doesn't recalculate.
 
-- Skip + flag rows missing **Brand Name**, **Store Code**, **Employee Code**, or **Store Password**.
-- Store Password min 6 chars (Supabase Auth requirement).
-- Duplicate Employee Code within the same file → all duplicates flagged.
-- Fully empty rows silently ignored.
+No changes to `audit_sessions` (still stores final `score` only — no per-answer history, matching current product).
 
-## What's never touched
+## Server functions (`src/lib/api/mock-audit.functions.ts`)
 
-- `audit_sessions` and `audit_questions` — historical audit data stays intact.
-- Existing employees not present in the CSV — left as-is (upsert, not destructive sync). UI will say so.
+- Widen `QuestionTypeEnum`.
+- Extend `upsertQuestion` validator to accept `options` (Zod discriminated union per type) + `required` + compute `max_score` server-side.
+- Extend `listQuestionsForBrand` / `adminListQuestions` selects to include `options, required, max_score`.
 
-## Files changed
+## Admin UI (`src/routes/_authenticated/admin.tsx` → `QuestionsTab`)
 
-- **`src/lib/api/mock-audit.functions.ts`** — append `previewImport` and `commitImport` server fns (admin-gated, use `supabaseAdmin` for auth + bypassing RLS for bulk writes).
-- **`src/routes/_authenticated/admin.tsx`** — add `Import` tab + `ImportTab` component (3-stage UI).
-- **`package.json`** — add `papaparse`, `@types/papaparse`, `xlsx` (already installed).
+Rebuild as an MS Forms-style editor:
 
-## Verification
+- Question list (left): drag-handle + up/down (existing reorder), card per question showing type icon, text, required asterisk.
+- Editor (right): type picker, question text, **Required** toggle, then a type-specific editor:
+  - Choice: add/remove options, weight input per option, "Add option" / "Add 'Other'".
+  - Rating: scale max (3/5/10), shape (stars/number), weight per step (defaults 0..max).
+  - Likert: statements list + scale columns with weights.
+  - Ranking: items + weight per rank position.
+  - Text/Date: just placeholder hint (no extra config).
+- Live "Auditor preview" panel (read-only render of the question).
 
-- Download template, fill 5 rows including: 1 new brand, 2 new stores, 1 existing store with changed name, 3 employees (one duplicate code, one missing Store Code) → preview shows correct counts and 2 errors.
-- Confirm → log in as one of the new stores with the CSV password → succeeds.
-- Re-upload with a changed password column → old password fails, new password works.
-- `audit_sessions` row count unchanged before/after.
+## Conduct UI (`src/routes/_authenticated/conduct.$employeeId.tsx`)
+
+- Render each question with the correct control (Radio / Checkbox / Input / Textarea / star row / number pills / Likert grid / date input / draggable list).
+- Validate required answers before enabling Submit.
+- Compute score = average of `(earned / max_score) × 100` across scored questions; pass to `submitAudit` (unchanged signature).
+
+## Backward compatibility
+
+- Existing `yes_no` questions keep working untouched (empty `options`, max_score=1, yes=1/no=0).
+- Existing audits (`audit_sessions`) unaffected — only forward-going audits use weighted scoring.
+
+## Technical notes
+
+- One `react-beautiful-dnd` alternative already not installed; use `@hello-pangea/dnd` (drop-in) for Ranking + question reorder, OR keep current up/down buttons and add native HTML5 drag for Ranking only. Recommend the latter to avoid a new dep.
+- All option editing happens client-side; single `upsertQuestion` call persists the full `options` JSON.
+
+## Out of scope
+
+- Per-answer history storage (audits still only persist final score + notes).
+- Branching/skip logic, sections, file upload questions, Net Promoter Score — not part of MS Forms core set the user asked to replicate.
