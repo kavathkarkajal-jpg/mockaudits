@@ -43,11 +43,7 @@ function AdminPage() {
         <TabsContent value="stores"><StoresTab brands={data?.brands ?? []} stores={data?.stores ?? []}/></TabsContent>
         <TabsContent value="employees"><EmployeesTab stores={data?.stores ?? []} employees={data?.employees ?? []}/></TabsContent>
         <TabsContent value="users"><UsersTab brands={data?.brands ?? []} stores={data?.stores ?? []} profiles={data?.profiles ?? []} roles={data?.roles ?? []}/></TabsContent>
-        <TabsContent value="questions">
-          <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
-            Questionnaire builder coming soon.
-          </div>
-        </TabsContent>
+        <TabsContent value="questions"><QuestionsTab brands={data?.brands ?? []}/></TabsContent>
       </Tabs>
     </div>
   );
