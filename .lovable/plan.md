@@ -1,21 +1,22 @@
-# Login page tweak + bootstrap admin account
+# Fix admin login — null auth token columns
 
-## 1. Login page (`src/routes/login.tsx`)
+The Supabase Auth service refuses to log in any user whose row in `auth.users` has NULL values in the internal token columns. The bootstrap admin row was inserted without populating them, so every sign-in returns 500 "Database error querying schema".
 
-- Replace the tagline "Retail L&D operations" with **"Adidas Kids"**, shown as a small uppercase brand line above the "Mock Audit Manager" title (so the brand reads as the parent, the app name reads as the product).
-- No other layout, color, or copy changes.
+## Fix
 
-## 2. Bootstrap admin account
+Update the admin row (and any future-safe sibling rows) to set the four token columns to empty strings:
 
-Create a one-shot migration that provisions the admin user via Postgres so you can sign in immediately:
+```sql
+UPDATE auth.users
+SET confirmation_token       = '',
+    recovery_token           = '',
+    email_change             = '',
+    email_change_token_new   = ''
+WHERE email = 'admin@mockaudit.app';
+```
 
-- Insert a row in `auth.users` with email `admin@mockaudit.app`, password `Training@123` (bcrypt-hashed via `crypt()`), `email_confirmed_at = now()`.
-- Insert matching `public.profiles` row (store_code `ADMIN`, full name "Admin").
-- Insert `public.user_roles` row with role `admin`.
-- Idempotent: skip inserts if the email already exists.
-
-### Your login credentials
+After this runs, sign in at `/login` with:
 - **Store Code:** `ADMIN`
 - **Password:** `Training@123`
 
-Once signed in you can create all other users (store managers, regional managers, trainers, business heads) from the Admin → Users tab.
+No code changes needed.
