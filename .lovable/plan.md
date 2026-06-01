@@ -1,39 +1,27 @@
-## Problem
+## Goal
 
-The preview is broken by a build-time error:
+Restrict the Dashboard so non-admin users (store_manager, regional_manager, business_head) only see their **own brand** — both brand cards and stores. Admin and trainer roles keep full visibility.
 
-```
-TypeError: Duplicate declaration "QuestionsTab"
-  at detectCodeSplitGroupingsFromRoute (@tanstack/router-plugin code-splitter)
-```
+## Change
 
-Because the build fails, no route renders correctly — including the "Start Mock Audit" buttons on `/conduct`. This isn't a click-handler bug; the app simply isn't compiling.
+Scope `getDashboard` in `src/lib/api/mock-audit.functions.ts`:
 
-## Root cause
+1. Inside the handler, after loading the auth context, read the caller's role and `brand_id` from their `profiles` / `user_roles` row (use the existing `current_user_role` / `current_brand_id` SQL helpers, or fetch via `supabase.from("profiles")` + `user_roles`).
+2. If role ∈ {`store_manager`, `regional_manager`, `business_head`} **and** they have a `brand_id`:
+   - Filter the `brands` query: `.eq("id", brandId)`
+   - Filter the `stores` query: `.eq("brand_id", brandId)`
+   - Employees are already RLS-scoped via `can_access_store`, no extra filter needed.
+3. Admin / trainer: behaviour unchanged (sees all brands).
 
-`src/routes/_authenticated/admin.tsx` imports a component whose name matches the imported binding:
+Result: a GAS store manager only sees the GAS brand card and GAS stores; all aggregations (totals, trend, brand cards, store table) compute over that scoped set automatically.
 
-```ts
-import { QuestionsTab } from "@/components/admin/QuestionsTab";
-...
-<QuestionsTab brands={...} />
-```
+## Out of scope
 
-TanStack Router's code-splitter rewrites route files and, in this case, ends up declaring a second `QuestionsTab` binding in the generated split chunk — Babel then throws "Duplicate declaration".
-
-## Fix
-
-Alias the import in `admin.tsx` so the local binding name differs from the splitter's generated name:
-
-```ts
-import { QuestionsTab as QuestionsTabPanel } from "@/components/admin/QuestionsTab";
-...
-<TabsContent value="questions"><QuestionsTabPanel brands={data?.brands ?? []}/></TabsContent>
-```
-
-No other files change. After the rebuild, `/conduct` renders and "Start Mock Audit" is clickable again.
+- No DB migration (RLS already correctly restricts employees/audit_sessions).
+- No UI changes to `dashboard.tsx` — it just renders whatever the server returns.
+- Conduct / Admin pages unchanged.
 
 ## Verification
 
-- Confirm the runtime error disappears.
-- Open `/conduct`, click "Start Mock Audit" on an employee, confirm the audit page loads.
+- Log in as a GAS-brand store_manager → dashboard shows only GAS brand card + GAS stores.
+- Log in as admin → still sees all brands.
