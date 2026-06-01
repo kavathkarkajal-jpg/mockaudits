@@ -1,13 +1,24 @@
-# Verify login works — likely a stale tab
+## Plan: Fix login bounce-back
 
-## What I observed
-- Auth logs show your most recent sign-in attempt returned **200 OK** at 09:38:46 (no more "Database error querying schema").
-- I just signed in via the preview as `ADMIN` / `Training@123` and was redirected to `/conduct` successfully.
-- Your browser tab, however, still shows `/login?` — that trailing `?` plus the "Page loaded" event in the replay indicates the page is doing a full reload back to the login form, which only happens when the in-tab JS/auth state is out of sync with the (now fixed) database.
+**Root cause:** After sign-in, `_authenticated.beforeLoad` re-runs and calls `supabase.auth.getUser()`, but the protected child route also fires `getMyProfile` server-fn before the bearer token is attached. If anything in that chain throws (or the profile row is missing for the admin user), the guard redirects back to `/login`.
 
-## What to do
-1. In the preview, hard-refresh the tab (Cmd/Ctrl+Shift+R) to drop the stale bundle and local Supabase session.
-2. Sign in again with **Store Code:** `ADMIN`, **Password:** `Training@123`.
-3. You should land on `/conduct`.
+### Changes
 
-No code or DB changes are needed. If after a hard refresh it still bounces you back to `/login`, reply and I will dig further (capture console logs from your tab and inspect the post-login server-fn call).
+1. **`src/routes/login.tsx`**
+   - After `signInWithPassword` succeeds, await `supabase.auth.getUser()` to confirm session is hydrated before navigating.
+   - Use `navigate({ to: "/conduct", replace: true })` to avoid back-stack returning to /login.
+   - Surface any thrown error as a toast instead of silently bouncing.
+
+2. **`src/routes/_authenticated.tsx`**
+   - Wrap the profile `useQuery` with `enabled` so it only runs once Supabase has a user.
+   - Make `getMyProfile` failures non-fatal (don't bubble into the error boundary that the user perceives as a redirect).
+
+3. **`src/lib/api/mock-audit.functions.ts`** (verify only)
+   - Confirm `getMyProfile` returns a sane shape for the seeded admin (id `d9612130…`) and doesn't throw if no `profiles` row exists yet — auto-insert a minimal admin profile row if missing.
+
+4. **DB safety net** (only if step 3 shows the admin has no profile row)
+   - One small migration to insert a `profiles` row + `user_roles` row for the admin user so `getMyProfile` always succeeds.
+
+### Verification
+- Hard-refresh preview, sign in as `ADMIN` / `Training@123`, confirm we land on `/conduct` and stay there.
+- Check browser network: `/auth/v1/token` 200 → then `getMyProfile` server-fn 200, no redirect to `/login`.
