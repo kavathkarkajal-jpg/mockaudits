@@ -160,7 +160,10 @@ export function scoreAnswer(type: QuestionType, options: unknown, a: Answer): nu
     case "likert": {
       const o = options as LikertOptions;
       const per = (a as Extract<Answer, { kind: "likert" }>).perStatement;
-      return per.reduce((s, sel) => s + (sel == null ? 0 : Number(o.scale[sel]?.weight) || 0), 0);
+      return per.reduce<number>(
+        (s, sel) => s + (sel == null ? 0 : Number(o.scale[sel]?.weight) || 0),
+        0,
+      );
     }
     case "ranking": {
       const opts = options as ChoiceOption[];
