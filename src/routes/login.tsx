@@ -31,8 +31,8 @@ function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-[oklch(0.22_0.06_255)] px-4">
       <div className="w-full max-w-sm rounded-2xl bg-card p-8 shadow-2xl">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Mock Audit Manager</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Retail L&amp;D operations</p>
+          <p className="text-xs font-semibold tracking-[0.2em] uppercase text-muted-foreground">Adidas Kids</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Mock Audit Manager</h1>
         </div>
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
