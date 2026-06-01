@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, Download, Pencil, Trash2, Upload } from "lucide-react";
+import { Download, Trash2, Upload } from "lucide-react";
 
 
 export const Route = createFileRoute("/_authenticated/admin")({
