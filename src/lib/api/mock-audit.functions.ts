@@ -526,6 +526,339 @@ export const reorderQuestions = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// ------- ADMIN: bulk CSV import -------
+const ImportRowSchema = z.object({
+  brand_name: z.string().trim().max(120).default(""),
+  store_code: z.string().trim().max(40).default(""),
+  store_name: z.string().trim().max(120).default(""),
+  region: z.string().trim().max(80).default(""),
+  employee_name: z.string().trim().max(120).default(""),
+  employee_code: z.string().trim().max(40).default(""),
+  store_password: z.string().max(72).default(""),
+});
+
+const ImportInput = z.object({
+  rows: z.array(ImportRowSchema).max(5000),
+});
+
+type RowIssue = { rowNumber: number; reason: string };
+type ImportRow = z.infer<typeof ImportRowSchema> & { rowNumber: number };
+
+function analyzeRows(rows: z.infer<typeof ImportRowSchema>[]) {
+  const errors: RowIssue[] = [];
+  const valid: ImportRow[] = [];
+  const seenEmpCodes = new Map<string, number>();
+
+  rows.forEach((r, i) => {
+    const rowNumber = i + 2;
+    const empty =
+      !r.brand_name && !r.store_code && !r.store_name && !r.region &&
+      !r.employee_name && !r.employee_code && !r.store_password;
+    if (empty) return;
+
+    const missing: string[] = [];
+    if (!r.brand_name) missing.push("Brand Name");
+    if (!r.store_code) missing.push("Store Code");
+    if (!r.employee_code) missing.push("Employee Code");
+    if (!r.store_password) missing.push("Store Password");
+    if (missing.length) {
+      errors.push({ rowNumber, reason: `Missing required: ${missing.join(", ")}` });
+      return;
+    }
+    if (r.store_password.length < 6) {
+      errors.push({ rowNumber, reason: "Store Password must be at least 6 characters" });
+      return;
+    }
+    const key = r.employee_code.toLowerCase();
+    if (seenEmpCodes.has(key)) {
+      errors.push({
+        rowNumber,
+        reason: `Duplicate Employee Code "${r.employee_code}" (also on row ${seenEmpCodes.get(key)})`,
+      });
+      return;
+    }
+    seenEmpCodes.set(key, rowNumber);
+    valid.push({ ...r, rowNumber });
+  });
+
+  return { valid, errors };
+}
+
+export const previewImport = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => ImportInput.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { valid, errors } = analyzeRows(data.rows);
+
+    const [{ data: brands }, { data: stores }, { data: employees }, { data: profiles }] =
+      await Promise.all([
+        supabaseAdmin.from("brands").select("id, name"),
+        supabaseAdmin.from("stores").select("id, store_code, store_name, region, brand_id"),
+        supabaseAdmin.from("employees").select("id, employee_code, name, store_id"),
+        supabaseAdmin.from("profiles").select("id, store_code"),
+      ]);
+
+    const brandByName = new Map((brands ?? []).map((b) => [b.name.toLowerCase(), b]));
+    const storeByCode = new Map((stores ?? []).map((s) => [s.store_code.toLowerCase(), s]));
+    const empByCode = new Map((employees ?? []).map((e) => [e.employee_code.toLowerCase(), e]));
+    const profileByStoreCode = new Map(
+      (profiles ?? []).map((p) => [p.store_code.toLowerCase(), p]),
+    );
+
+    const newBrandKeys = new Set<string>();
+    let newStores = 0, updatedStores = 0;
+    let newEmployees = 0, updatedEmployees = 0;
+    let newUsers = 0, updatedPasswords = 0;
+
+    const preview = valid.map((r) => {
+      const brandKey = r.brand_name.toLowerCase();
+      const brandStatus = brandByName.has(brandKey) ? "exists" : "create";
+      if (brandStatus === "create") newBrandKeys.add(brandKey);
+
+      const existingStore = storeByCode.get(r.store_code.toLowerCase());
+      let storeStatus: "create" | "update" | "exists" = "create";
+      if (existingStore) {
+        const changed =
+          (r.store_name && existingStore.store_name !== r.store_name) ||
+          (r.region && existingStore.region !== r.region);
+        storeStatus = changed ? "update" : "exists";
+      }
+      if (storeStatus === "create") newStores++;
+      else if (storeStatus === "update") updatedStores++;
+
+      const existingEmp = empByCode.get(r.employee_code.toLowerCase());
+      let empStatus: "create" | "update" | "exists" = "create";
+      if (existingEmp) {
+        empStatus = existingEmp.name !== r.employee_name ? "update" : "exists";
+      }
+      if (empStatus === "create") newEmployees++;
+      else if (empStatus === "update") updatedEmployees++;
+
+      const hasUser = profileByStoreCode.has(r.store_code.toLowerCase());
+      if (hasUser) updatedPasswords++;
+      else newUsers++;
+
+      return {
+        rowNumber: r.rowNumber,
+        brand_name: r.brand_name,
+        store_code: r.store_code,
+        store_name: r.store_name,
+        region: r.region || "Default",
+        employee_name: r.employee_name,
+        employee_code: r.employee_code,
+        brandStatus,
+        storeStatus,
+        empStatus,
+        userStatus: hasUser ? "password_update" : "create",
+      };
+    });
+
+    return {
+      preview,
+      errors,
+      summary: {
+        totalRows: data.rows.length,
+        validRows: valid.length,
+        skipped: errors.length,
+        newBrands: newBrandKeys.size,
+        newStores,
+        updatedStores,
+        newEmployees,
+        updatedEmployees,
+        newUsers,
+        updatedPasswords,
+      },
+    };
+  });
+
+export const commitImport = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => ImportInput.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { valid, errors } = analyzeRows(data.rows);
+
+    const [{ data: brands }, { data: stores }, { data: employees }, { data: profiles }] =
+      await Promise.all([
+        supabaseAdmin.from("brands").select("id, name"),
+        supabaseAdmin.from("stores").select("id, store_code, store_name, region, brand_id"),
+        supabaseAdmin.from("employees").select("id, employee_code, name, store_id"),
+        supabaseAdmin.from("profiles").select("id, store_code"),
+      ]);
+
+    const brandByName = new Map((brands ?? []).map((b) => [b.name.toLowerCase(), { ...b }]));
+    const storeByCode = new Map(
+      (stores ?? []).map((s) => [s.store_code.toLowerCase(), { ...s }]),
+    );
+    const empByCode = new Map(
+      (employees ?? []).map((e) => [e.employee_code.toLowerCase(), { ...e }]),
+    );
+    const profileByStoreCode = new Map(
+      (profiles ?? []).map((p) => [p.store_code.toLowerCase(), { ...p }]),
+    );
+
+    let createdBrands = 0, createdStores = 0, updatedStores = 0;
+    let createdEmployees = 0, updatedEmployees = 0;
+    let createdUsers = 0, updatedPasswords = 0;
+    let processed = 0;
+    const rowErrors: RowIssue[] = [...errors];
+
+    for (const r of valid) {
+      try {
+        const brandKey = r.brand_name.toLowerCase();
+        let brand = brandByName.get(brandKey);
+        if (!brand) {
+          const { data: ins, error } = await supabaseAdmin
+            .from("brands")
+            .insert({ name: r.brand_name })
+            .select("id, name")
+            .single();
+          if (error || !ins) throw new Error(`Brand insert failed: ${error?.message}`);
+          brand = ins;
+          brandByName.set(brandKey, brand);
+          createdBrands++;
+        }
+
+        const storeKey = r.store_code.toLowerCase();
+        let store = storeByCode.get(storeKey);
+        const region = r.region || "Default";
+        if (!store) {
+          const { data: ins, error } = await supabaseAdmin
+            .from("stores")
+            .insert({
+              brand_id: brand.id,
+              store_code: r.store_code,
+              store_name: r.store_name || r.store_code,
+              region,
+            })
+            .select("id, store_code, store_name, region, brand_id")
+            .single();
+          if (error || !ins) throw new Error(`Store insert failed: ${error?.message}`);
+          store = ins;
+          storeByCode.set(storeKey, store);
+          createdStores++;
+        } else {
+          const newName = r.store_name || store.store_name;
+          const needs =
+            store.store_name !== newName ||
+            store.region !== region ||
+            store.brand_id !== brand.id;
+          if (needs) {
+            const { error } = await supabaseAdmin
+              .from("stores")
+              .update({ store_name: newName, region, brand_id: brand.id })
+              .eq("id", store.id);
+            if (error) throw new Error(`Store update failed: ${error.message}`);
+            store.store_name = newName;
+            store.region = region;
+            store.brand_id = brand.id;
+            updatedStores++;
+          }
+        }
+
+        const existingProfile = profileByStoreCode.get(storeKey);
+        if (existingProfile) {
+          const { error } = await supabaseAdmin.auth.admin.updateUserById(existingProfile.id, {
+            password: r.store_password,
+          });
+          if (error) throw new Error(`Password update failed: ${error.message}`);
+          await supabaseAdmin
+            .from("profiles")
+            .update({
+              brand_id: brand.id,
+              store_id: store.id,
+              region,
+              full_name: r.store_name || existingProfile.store_code,
+            })
+            .eq("id", existingProfile.id);
+          updatedPasswords++;
+        } else {
+          const email = synthEmail(r.store_code);
+          const { data: created, error: cErr } = await supabaseAdmin.auth.admin.createUser({
+            email,
+            password: r.store_password,
+            email_confirm: true,
+          });
+          if (cErr || !created.user) throw new Error(`User create failed: ${cErr?.message}`);
+          const newId = created.user.id;
+          const { error: pErr } = await supabaseAdmin.from("profiles").insert({
+            id: newId,
+            store_code: r.store_code,
+            full_name: r.store_name || r.store_code,
+            brand_id: brand.id,
+            store_id: store.id,
+            region,
+          });
+          if (pErr) {
+            await supabaseAdmin.auth.admin.deleteUser(newId);
+            throw new Error(`Profile insert failed: ${pErr.message}`);
+          }
+          const { error: rErr } = await supabaseAdmin
+            .from("user_roles")
+            .insert({ user_id: newId, role: "store_manager" });
+          if (rErr) throw new Error(`Role insert failed: ${rErr.message}`);
+          profileByStoreCode.set(storeKey, { id: newId, store_code: r.store_code });
+          createdUsers++;
+        }
+
+        const empKey = r.employee_code.toLowerCase();
+        const existingEmp = empByCode.get(empKey);
+        if (!existingEmp) {
+          const { data: ins, error } = await supabaseAdmin
+            .from("employees")
+            .insert({
+              store_id: store.id,
+              employee_code: r.employee_code,
+              name: r.employee_name || r.employee_code,
+              active: true,
+            })
+            .select("id, employee_code, name, store_id")
+            .single();
+          if (error || !ins) throw new Error(`Employee insert failed: ${error?.message}`);
+          empByCode.set(empKey, ins);
+          createdEmployees++;
+        } else {
+          const newName = r.employee_name || existingEmp.name;
+          const needs = existingEmp.name !== newName || existingEmp.store_id !== store.id;
+          if (needs) {
+            const { error } = await supabaseAdmin
+              .from("employees")
+              .update({ name: newName, store_id: store.id, active: true })
+              .eq("id", existingEmp.id);
+            if (error) throw new Error(`Employee update failed: ${error.message}`);
+            existingEmp.name = newName;
+            existingEmp.store_id = store.id;
+            updatedEmployees++;
+          }
+        }
+        processed++;
+      } catch (e) {
+        rowErrors.push({
+          rowNumber: r.rowNumber,
+          reason: e instanceof Error ? e.message : "Unknown error",
+        });
+      }
+    }
+
+    return {
+      ok: true,
+      summary: {
+        totalRows: data.rows.length,
+        processed,
+        createdBrands,
+        createdStores,
+        updatedStores,
+        createdEmployees,
+        updatedEmployees,
+        createdUsers,
+        updatedPasswords,
+        skipped: rowErrors.length,
+      },
+      errors: rowErrors,
+    };
+  });
+
 // ------- helpers -------
 function synthEmail(storeCode: string) {
   return `${storeCode.toLowerCase()}@mockaudit.app`;
