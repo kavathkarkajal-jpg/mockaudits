@@ -1,11 +1,14 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import Papa from "papaparse";
+import * as XLSX from "xlsx";
 import {
   adminListAll, upsertBrand, deleteBrand, upsertStore, deleteStore,
   upsertEmployee, deleteEmployee, createUser, deleteUser, getMyProfile,
   adminListQuestions, upsertQuestion, deleteQuestion, reorderQuestions,
+  previewImport, commitImport,
 } from "@/lib/api/mock-audit.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +17,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, Pencil, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, Pencil, Trash2, Upload } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: async () => {
