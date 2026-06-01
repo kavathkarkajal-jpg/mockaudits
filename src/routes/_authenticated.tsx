@@ -8,8 +8,9 @@ import { LogOut, ClipboardCheck, BarChart3, Settings } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) throw redirect({ to: "/login" });
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) throw redirect({ to: "/login", replace: true });
+    return { userId: data.user.id };
   },
   component: AuthLayout,
 });
@@ -17,12 +18,18 @@ export const Route = createFileRoute("/_authenticated")({
 function AuthLayout() {
   const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const { userId } = Route.useRouteContext();
   const fetchMe = useServerFn(getMyProfile);
-  const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
+  const { data: me } = useQuery({
+    queryKey: ["me", userId],
+    queryFn: () => fetchMe(),
+    enabled: !!userId,
+    retry: 1,
+  });
 
   async function logout() {
     await supabase.auth.signOut();
-    navigate({ to: "/login" });
+    navigate({ to: "/login", replace: true });
   }
 
   const isAdmin = me?.role === "admin";

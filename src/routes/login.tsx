@@ -20,11 +20,23 @@ function LoginPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const email = `${storeCode.trim().toLowerCase()}@mockaudit.app`;
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setBusy(false);
-    if (error) { toast.error(error.message); return; }
-    navigate({ to: "/conduct" });
+    try {
+      const email = `${storeCode.trim().toLowerCase()}@mockaudit.app`;
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) { toast.error(error.message); return; }
+      // Wait for session to be fully hydrated before navigating, so the
+      // protected route's beforeLoad sees the authenticated user.
+      const { data, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !data.user) {
+        toast.error(userErr?.message ?? "Could not verify session. Please try again.");
+        return;
+      }
+      navigate({ to: "/conduct", replace: true });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Sign-in failed");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
