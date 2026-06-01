@@ -7,9 +7,9 @@ import * as XLSX from "xlsx";
 import {
   adminListAll, upsertBrand, deleteBrand, upsertStore, deleteStore,
   upsertEmployee, deleteEmployee, createUser, deleteUser, getMyProfile,
-  adminListQuestions, upsertQuestion, deleteQuestion, reorderQuestions,
   previewImport, commitImport,
 } from "@/lib/api/mock-audit.functions";
+import { QuestionsTab } from "@/components/admin/QuestionsTab";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
