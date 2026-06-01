@@ -110,14 +110,30 @@ export const submitAudit = createServerFn({ method: "POST" })
 export const getDashboard = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     const monday = mondayISO();
     const weeks = lastNMondays(8);
 
+    // Determine caller's brand scope
+    const [{ data: roleRow }, { data: profileRow }] = await Promise.all([
+      supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
+      supabase.from("profiles").select("brand_id").eq("id", userId).maybeSingle(),
+    ]);
+    const role = roleRow?.role as string | undefined;
+    const scopedBrandId =
+      role && !["admin", "trainer"].includes(role) ? profileRow?.brand_id ?? null : null;
+
+    const brandsQ = supabase.from("brands").select("id, name, primary_color");
+    const storesQ = supabase.from("stores").select("id, brand_id, store_code, store_name, region");
+    if (scopedBrandId) {
+      brandsQ.eq("id", scopedBrandId);
+      storesQ.eq("brand_id", scopedBrandId);
+    }
+
     const [{ data: brands }, { data: stores }, { data: employees }] =
       await Promise.all([
-        supabase.from("brands").select("id, name, primary_color"),
-        supabase.from("stores").select("id, brand_id, store_code, store_name, region"),
+        brandsQ,
+        storesQ,
         supabase.from("employees").select("id, store_id").eq("active", true),
       ]);
 
