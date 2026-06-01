@@ -1,22 +1,13 @@
-# Fix admin login — null auth token columns
+# Verify login works — likely a stale tab
 
-The Supabase Auth service refuses to log in any user whose row in `auth.users` has NULL values in the internal token columns. The bootstrap admin row was inserted without populating them, so every sign-in returns 500 "Database error querying schema".
+## What I observed
+- Auth logs show your most recent sign-in attempt returned **200 OK** at 09:38:46 (no more "Database error querying schema").
+- I just signed in via the preview as `ADMIN` / `Training@123` and was redirected to `/conduct` successfully.
+- Your browser tab, however, still shows `/login?` — that trailing `?` plus the "Page loaded" event in the replay indicates the page is doing a full reload back to the login form, which only happens when the in-tab JS/auth state is out of sync with the (now fixed) database.
 
-## Fix
+## What to do
+1. In the preview, hard-refresh the tab (Cmd/Ctrl+Shift+R) to drop the stale bundle and local Supabase session.
+2. Sign in again with **Store Code:** `ADMIN`, **Password:** `Training@123`.
+3. You should land on `/conduct`.
 
-Update the admin row (and any future-safe sibling rows) to set the four token columns to empty strings:
-
-```sql
-UPDATE auth.users
-SET confirmation_token       = '',
-    recovery_token           = '',
-    email_change             = '',
-    email_change_token_new   = ''
-WHERE email = 'admin@mockaudit.app';
-```
-
-After this runs, sign in at `/login` with:
-- **Store Code:** `ADMIN`
-- **Password:** `Training@123`
-
-No code changes needed.
+No code or DB changes are needed. If after a hard refresh it still bounces you back to `/login`, reply and I will dig further (capture console logs from your tab and inspect the post-login server-fn call).
