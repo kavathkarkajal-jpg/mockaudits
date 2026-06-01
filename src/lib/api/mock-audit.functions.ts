@@ -422,7 +422,7 @@ export const listQuestionsForBrand = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { data: rows, error } = await context.supabase
       .from("audit_questions")
-      .select("id, brand_id, question_text, question_type, display_order")
+      .select("id, brand_id, question_text, question_type, display_order, options, required, max_score")
       .eq("brand_id", data.brand_id)
       .order("display_order", { ascending: true });
     if (error) throw new Error(error.message);
@@ -436,14 +436,25 @@ export const adminListQuestions = createServerFn({ method: "GET" })
     await assertAdmin(context.supabase, context.userId);
     const { data, error } = await context.supabase
       .from("audit_questions")
-      .select("id, brand_id, question_text, question_type, display_order")
+      .select("id, brand_id, question_text, question_type, display_order, options, required, max_score")
       .order("brand_id")
       .order("display_order", { ascending: true });
     if (error) throw new Error(error.message);
     return data ?? [];
   });
 
-const QuestionTypeEnum = z.enum(["yes_no"]);
+const QuestionTypeEnum = z.enum([
+  "yes_no",
+  "single_choice",
+  "multi_choice",
+  "short_text",
+  "long_text",
+  "rating_stars",
+  "rating_number",
+  "likert",
+  "date",
+  "ranking",
+]);
 
 export const upsertQuestion = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -454,22 +465,28 @@ export const upsertQuestion = createServerFn({ method: "POST" })
         brand_id: z.string().uuid(),
         question_text: z.string().min(1).max(1000),
         question_type: QuestionTypeEnum.default("yes_no"),
+        options: z.any().optional(),
+        required: z.boolean().optional(),
+        max_score: z.number().optional(),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
+    const payload = {
+      question_text: data.question_text,
+      question_type: data.question_type,
+      options: data.options ?? [],
+      required: data.required ?? false,
+      max_score: data.max_score ?? 0,
+    };
     if (data.id) {
       const { error } = await context.supabase
         .from("audit_questions")
-        .update({
-          question_text: data.question_text,
-          question_type: data.question_type,
-        })
+        .update(payload)
         .eq("id", data.id);
       if (error) throw new Error(error.message);
     } else {
-      // Append at end of brand
       const { data: maxRow } = await context.supabase
         .from("audit_questions")
         .select("display_order")
@@ -480,14 +497,14 @@ export const upsertQuestion = createServerFn({ method: "POST" })
       const nextOrder = (maxRow?.display_order ?? -1) + 1;
       const { error } = await context.supabase.from("audit_questions").insert({
         brand_id: data.brand_id,
-        question_text: data.question_text,
-        question_type: data.question_type,
+        ...payload,
         display_order: nextOrder,
       });
       if (error) throw new Error(error.message);
     }
     return { ok: true };
   });
+
 
 export const deleteQuestion = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
