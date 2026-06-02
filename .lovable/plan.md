@@ -1,13 +1,15 @@
 ## Plan
 
-1. **Fix the audit card button markup**
-   - Replace the current `Button asChild disabled` pattern around the `Link` in `src/routes/_authenticated/conduct.tsx`.
-   - Render a real clickable `Link` for pending employees and a separate disabled-looking button/text state for completed employees.
-   - This avoids invalid/fragile disabled behavior being passed through to an anchor.
+1. **Fix the nested conduct route layout**
+   - The button is navigating to `/conduct/$employeeId`, but `src/routes/_authenticated/conduct.tsx` is currently both the `/conduct` list page and the parent route for `/conduct/$employeeId`.
+   - Because it does not render an `<Outlet />`, the child audit form route matches but cannot appear.
 
-2. **Clean up the related admin import regression**
-   - Revert `QuestionsTab as QuestionsTabPanel` back to a direct `QuestionsTab` import in `src/routes/_authenticated/admin.tsx`, since the prior alias is a known source of unexpected click/interactivity issues in this app.
+2. **Move the employee list into an index child route**
+   - Turn `src/routes/_authenticated/conduct.tsx` into a lightweight layout route that renders `<Outlet />`.
+   - Create `src/routes/_authenticated/conduct.index.tsx` for the current employee list UI.
+   - Keep the existing button link target as `/conduct/$employeeId` with `params={{ employeeId: e.id }}`.
 
-3. **Verify navigation path**
-   - Confirm the pending employee button routes to `/conduct/$employeeId` and completed employees remain non-clickable.
-   - Keep the existing weekly-completed business rule unchanged.
+3. **Verify route behavior**
+   - Confirm `/conduct` shows the employee list.
+   - Confirm clicking **Start Mock Audit** changes to `/conduct/{employeeId}` and renders the audit form.
+   - Confirm completed employees still show the disabled **Done this week** button.

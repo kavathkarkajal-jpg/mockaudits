@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedConductRouteImport } from './routes/_authenticated/conduct'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedConductIndexRouteImport } from './routes/_authenticated/conduct.index'
 import { Route as AuthenticatedConductEmployeeIdRouteImport } from './routes/_authenticated/conduct.$employeeId'
 
 const LoginRoute = LoginRouteImport.update({
@@ -46,6 +47,12 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedConductIndexRoute =
+  AuthenticatedConductIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedConductRoute,
+  } as any)
 const AuthenticatedConductEmployeeIdRoute =
   AuthenticatedConductEmployeeIdRouteImport.update({
     id: '/$employeeId',
@@ -60,14 +67,15 @@ export interface FileRoutesByFullPath {
   '/conduct': typeof AuthenticatedConductRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/conduct/$employeeId': typeof AuthenticatedConductEmployeeIdRoute
+  '/conduct/': typeof AuthenticatedConductIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/admin': typeof AuthenticatedAdminRoute
-  '/conduct': typeof AuthenticatedConductRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/conduct/$employeeId': typeof AuthenticatedConductEmployeeIdRoute
+  '/conduct': typeof AuthenticatedConductIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -78,6 +86,7 @@ export interface FileRoutesById {
   '/_authenticated/conduct': typeof AuthenticatedConductRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/conduct/$employeeId': typeof AuthenticatedConductEmployeeIdRoute
+  '/_authenticated/conduct/': typeof AuthenticatedConductIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -88,14 +97,15 @@ export interface FileRouteTypes {
     | '/conduct'
     | '/dashboard'
     | '/conduct/$employeeId'
+    | '/conduct/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
     | '/admin'
-    | '/conduct'
     | '/dashboard'
     | '/conduct/$employeeId'
+    | '/conduct'
   id:
     | '__root__'
     | '/'
@@ -105,6 +115,7 @@ export interface FileRouteTypes {
     | '/_authenticated/conduct'
     | '/_authenticated/dashboard'
     | '/_authenticated/conduct/$employeeId'
+    | '/_authenticated/conduct/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -157,6 +168,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/conduct/': {
+      id: '/_authenticated/conduct/'
+      path: '/'
+      fullPath: '/conduct/'
+      preLoaderRoute: typeof AuthenticatedConductIndexRouteImport
+      parentRoute: typeof AuthenticatedConductRoute
+    }
     '/_authenticated/conduct/$employeeId': {
       id: '/_authenticated/conduct/$employeeId'
       path: '/$employeeId'
@@ -169,10 +187,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedConductRouteChildren {
   AuthenticatedConductEmployeeIdRoute: typeof AuthenticatedConductEmployeeIdRoute
+  AuthenticatedConductIndexRoute: typeof AuthenticatedConductIndexRoute
 }
 
 const AuthenticatedConductRouteChildren: AuthenticatedConductRouteChildren = {
   AuthenticatedConductEmployeeIdRoute: AuthenticatedConductEmployeeIdRoute,
+  AuthenticatedConductIndexRoute: AuthenticatedConductIndexRoute,
 }
 
 const AuthenticatedConductRouteWithChildren =
@@ -202,3 +222,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
