@@ -9,7 +9,7 @@ import {
   upsertEmployee, deleteEmployee, createUser, deleteUser, getMyProfile,
   previewImport, commitImport,
 } from "@/lib/api/mock-audit.functions";
-import { QuestionsTab as QuestionsTabPanel } from "@/components/admin/QuestionsTab";
+import { QuestionsTab } from "@/components/admin/QuestionsTab";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,7 +48,7 @@ function AdminPage() {
         <TabsContent value="stores"><StoresTab brands={data?.brands ?? []} stores={data?.stores ?? []}/></TabsContent>
         <TabsContent value="employees"><EmployeesTab stores={data?.stores ?? []} employees={data?.employees ?? []}/></TabsContent>
         <TabsContent value="users"><UsersTab brands={data?.brands ?? []} stores={data?.stores ?? []} profiles={data?.profiles ?? []} roles={data?.roles ?? []}/></TabsContent>
-        <TabsContent value="questions"><QuestionsTabPanel brands={data?.brands ?? []}/></TabsContent>
+        <TabsContent value="questions"><QuestionsTab brands={data?.brands ?? []}/></TabsContent>
         <TabsContent value="import"><ImportTab/></TabsContent>
       </Tabs>
 
