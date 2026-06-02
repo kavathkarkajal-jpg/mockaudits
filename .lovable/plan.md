@@ -1,27 +1,13 @@
-## Goal
+## Plan
 
-Restrict the Dashboard so non-admin users (store_manager, regional_manager, business_head) only see their **own brand** — both brand cards and stores. Admin and trainer roles keep full visibility.
+1. **Fix the audit card button markup**
+   - Replace the current `Button asChild disabled` pattern around the `Link` in `src/routes/_authenticated/conduct.tsx`.
+   - Render a real clickable `Link` for pending employees and a separate disabled-looking button/text state for completed employees.
+   - This avoids invalid/fragile disabled behavior being passed through to an anchor.
 
-## Change
+2. **Clean up the related admin import regression**
+   - Revert `QuestionsTab as QuestionsTabPanel` back to a direct `QuestionsTab` import in `src/routes/_authenticated/admin.tsx`, since the prior alias is a known source of unexpected click/interactivity issues in this app.
 
-Scope `getDashboard` in `src/lib/api/mock-audit.functions.ts`:
-
-1. Inside the handler, after loading the auth context, read the caller's role and `brand_id` from their `profiles` / `user_roles` row (use the existing `current_user_role` / `current_brand_id` SQL helpers, or fetch via `supabase.from("profiles")` + `user_roles`).
-2. If role ∈ {`store_manager`, `regional_manager`, `business_head`} **and** they have a `brand_id`:
-   - Filter the `brands` query: `.eq("id", brandId)`
-   - Filter the `stores` query: `.eq("brand_id", brandId)`
-   - Employees are already RLS-scoped via `can_access_store`, no extra filter needed.
-3. Admin / trainer: behaviour unchanged (sees all brands).
-
-Result: a GAS store manager only sees the GAS brand card and GAS stores; all aggregations (totals, trend, brand cards, store table) compute over that scoped set automatically.
-
-## Out of scope
-
-- No DB migration (RLS already correctly restricts employees/audit_sessions).
-- No UI changes to `dashboard.tsx` — it just renders whatever the server returns.
-- Conduct / Admin pages unchanged.
-
-## Verification
-
-- Log in as a GAS-brand store_manager → dashboard shows only GAS brand card + GAS stores.
-- Log in as admin → still sees all brands.
+3. **Verify navigation path**
+   - Confirm the pending employee button routes to `/conduct/$employeeId` and completed employees remain non-clickable.
+   - Keep the existing weekly-completed business rule unchanged.

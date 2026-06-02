@@ -80,11 +80,15 @@ function ConductPage() {
                   ? <Badge className="bg-[oklch(0.68_0.16_150)] text-[oklch(0.15_0.05_150)] hover:bg-[oklch(0.68_0.16_150)]">Completed</Badge>
                   : <Badge className="bg-[oklch(0.78_0.16_75)] text-[oklch(0.20_0.06_75)] hover:bg-[oklch(0.78_0.16_75)]">Pending</Badge>}
               </div>
-              <Button asChild disabled={e.completedThisWeek} variant={e.completedThisWeek ? "secondary" : "default"}>
-                <Link to="/conduct/$employeeId" params={{ employeeId: e.id }}>
-                  {e.completedThisWeek ? "Done this week" : "Start Mock Audit"}
-                </Link>
-              </Button>
+              {e.completedThisWeek ? (
+                <Button disabled variant="secondary">Done this week</Button>
+              ) : (
+                <Button asChild>
+                  <Link to="/conduct/$employeeId" params={{ employeeId: e.id }}>
+                    Start Mock Audit
+                  </Link>
+                </Button>
+              )}
             </div>
           ))}
         </div>
