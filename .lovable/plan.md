@@ -1,37 +1,38 @@
 
-## Redesign the Conduct (first) page to match the mockup
+## Redesign `/conduct/$employeeId` to match the mockup
 
-Restyle `/conduct` (the employee list) to match the attached mobile design. Pure visual work — no business logic, data, or routing changes.
+Pure visual redesign of `src/routes/_authenticated/conduct.$employeeId.tsx`. No changes to data, scoring, server functions, or routing.
 
-### 1. Dark hero header (above the list)
-Add a deep navy hero block at the top of `conduct.index.tsx`:
-- "Welcome back," small label + bold "Mock Audit Manager" headline + subtitle "Conduct weekly mock audits for your team".
-- Progress card inside the hero: clipboard icon in a blue circle, "This Week's Progress · NN% Completed" with a thin green progress bar, divider, then `X/Y Completed` and `Z Pending` stats.
-- Numbers computed from existing `data` (completedThisWeek vs total) — no new server calls.
+### 1. Dark navy hero header
+Replace the plain title row with a deep navy block that contains:
+- Top row: back arrow (Link to `/conduct`) on left, "Conduct Audit" centered, three-dot menu placeholder on right.
+- Employee strip: circular initials avatar (pastel, hashed from name) + bold name + "{Brand} · {Store}" subtitle on left; small bordered "Current Score" card on the right showing the employee's avg score in green (`87%` style), with a tiny sparkline-ish accent. If no prior score, show "—".
+- Progress row: "Question X-Y of N" left, "NN%" right, then a thin green progress bar. X-Y = "answered+1" range, N = total, % = answered/total.
+- Section card (still inside navy hero): rounded, slightly lighter navy with subtle border. Left: small icon tile + "Section 1" kicker + "Customer Engagement" title + "M / K Questions" subtitle. Right: small bordered "Section Score" card with trophy icon and green percentage.
+  - For now (no section metadata in DB), render a single synthetic "Section 1 · Questionnaire" with `answered / total`. Real sections are out of scope.
 
-### 2. Light section header
-Below the hero, on light background:
-- Avatar circle + "Conduct Audit" title + "Select an employee to start their weekly mock audit".
+### 2. Light questions area
+Below the hero, on the page background:
+- Each question rendered as a full-width white rounded card with soft shadow:
+  - Left gutter: status dot — filled green check when answered, hollow blue ring when current/unanswered.
+  - Header row: `Q{n}.` bold + question text. Bookmark icon on the right (visual only, non-functional).
+  - Below: existing input control (yes/no, choice, rating, etc.) — keep all logic.
+  - Footer row (only when answered and question has points): green pill on left showing the chosen label (e.g. "Excellent", "Greeting Only") + amber/green "+N pt(s)" pill on right with chevron. For text/date answers, show a short summary instead of a label pill; hide the points pill if `max_score === 0`.
+  - The "current" (first unanswered) card gets a blue ring border to match the mockup's Q10 state.
 
-### 3. Filter row restyle
-- Search input with leading magnifier icon + a square filter-icon button beside it.
-- Brand and Store selects styled as rounded pill cards with leading tag/store icons (keep existing Select logic).
+### 3. Submit / score footer
+Keep the existing computed-score + notes + submit card, restyled to match (white rounded card, navy primary button). No logic changes.
 
-### 4. Employee cards restyle
-Each card becomes a full-width white rounded card with shadow:
-- Left: circular initials avatar with pastel background (color hashed from name).
-- Middle: bold name, employee code, "{Brand} • {Store}".
-- Right: pill "Pending" (amber) / "Completed" (green) with clock/check icon + chevron.
-- Full-width dark navy "Start Mock Audit" button with play icon (or disabled "Done this week" when completed).
-
-### 5. Tokens
-Add navy hero color + accent tokens in `src/styles.css` (semantic only, no hard-coded colors in components).
+### 4. Tokens
+Reuse the navy tokens already added for the list page in `src/styles.css`. Add only what's missing (e.g. a slightly lighter navy surface for the section card, success/amber pill tokens) — semantic only.
 
 ### Out of scope
-- Bottom mobile tab bar (already exists in `_authenticated.tsx`); no change.
-- Notification bell / hamburger from mockup — skipped unless requested.
-- Routing, queries, auth, audit form page.
+- Real "sections" data model (mockup shows "Section 1 of N" — we render one synthetic section).
+- Bookmark / three-dot menu functionality (icons only).
+- Sparkline graphic in the score card (use a static accent line).
+- Bottom tab bar (already exists in `_authenticated.tsx`).
+- Any change to scoring, submission, question types, or routing.
 
 ### Files
-- edit `src/routes/_authenticated/conduct.index.tsx`
-- edit `src/styles.css` (add tokens)
+- edit `src/routes/_authenticated/conduct.$employeeId.tsx`
+- edit `src/styles.css` (only if new tokens needed)
