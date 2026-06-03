@@ -17,7 +17,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Star, ArrowUp, ArrowDown } from "lucide-react";
+import {
+  Star, ArrowUp, ArrowDown, ArrowLeft, MoreVertical, Bookmark,
+  CheckCircle2, ChevronRight, Trophy, Users, TrendingUp,
+} from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/conduct/$employeeId")({ component: AuditPage });
@@ -30,6 +33,50 @@ type Q = {
   required: boolean;
   max_score: number;
 };
+
+const AVATAR_PALETTE = [
+  ["oklch(0.92 0.04 255)", "oklch(0.35 0.12 255)"],
+  ["oklch(0.92 0.06 150)", "oklch(0.30 0.10 150)"],
+  ["oklch(0.92 0.05 300)", "oklch(0.35 0.12 300)"],
+  ["oklch(0.93 0.05 60)",  "oklch(0.40 0.12 60)"],
+  ["oklch(0.92 0.05 20)",  "oklch(0.40 0.14 20)"],
+  ["oklch(0.92 0.05 200)", "oklch(0.35 0.12 200)"],
+];
+function initialsOf(name: string) {
+  const parts = name.replace(/^(Mr\.|Ms\.|Mrs\.|Dr\.)\s+/i, "").split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
+}
+function paletteFor(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_PALETTE[h % AVATAR_PALETTE.length];
+}
+
+// Return a short label summarizing the user's answer (for the green pill).
+function answerLabel(q: Q, a: Answer): string | null {
+  switch (a.kind) {
+    case "yes_no": return a.value === "yes" ? "Yes" : a.value === "no" ? "No" : null;
+    case "single_choice": {
+      const opts = (q.options as ChoiceOption[]) ?? [];
+      return a.index == null ? null : opts[a.index]?.label ?? null;
+    }
+    case "multi_choice": {
+      const opts = (q.options as ChoiceOption[]) ?? [];
+      if (!a.indices.length) return null;
+      const names = a.indices.map((i) => opts[i]?.label).filter(Boolean);
+      return names.length <= 2 ? names.join(", ") : `${names.length} selected`;
+    }
+    case "text": return a.value.trim() ? (a.value.length > 40 ? a.value.slice(0, 40) + "…" : a.value) : null;
+    case "rating": return a.step == null ? null : `${a.step} ${q.question_type === "rating_stars" ? "★" : "pts"}`;
+    case "likert": {
+      const total = a.perStatement.length;
+      const done = a.perStatement.filter((v) => v !== null).length;
+      return done === 0 ? null : `${done}/${total} rated`;
+    }
+    case "date": return a.value || null;
+    case "ranking": return "Ranked";
+  }
+}
 
 function AuditPage() {
   const { employeeId } = Route.useParams();
@@ -53,7 +100,6 @@ function AuditPage() {
   const [notes, setNotes] = useState("");
   const [result, setResult] = useState<{ score: number } | null>(null);
 
-  // Initialize answers when questions load / change
   useEffect(() => {
     if (!questions) return;
     setAnswers((prev) => {
@@ -116,7 +162,7 @@ function AuditPage() {
       <div className="max-w-md mx-auto rounded-2xl bg-card p-8 text-center shadow border">
         <div className="text-sm text-muted-foreground">Audit complete for</div>
         <h2 className="text-xl font-semibold">{employee.name}</h2>
-        <div className="mt-6 text-5xl font-bold text-[oklch(0.55_0.16_255)]">{result.score.toFixed(1)}</div>
+        <div className="mt-6 text-5xl font-bold text-[oklch(0.68_0.16_150)]">{result.score.toFixed(1)}</div>
         <div className="text-xs text-muted-foreground mt-1">Score (out of 100)</div>
         <div className="mt-6 flex gap-2 justify-center">
           <Button asChild variant="outline"><Link to="/conduct">Back to list</Link></Button>
@@ -128,72 +174,185 @@ function AuditPage() {
 
   const setA = (id: string, a: Answer) => setAnswers((p) => ({ ...p, [id]: a }));
 
-  return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <Link to="/conduct" className="text-xs text-muted-foreground hover:underline">← All employees</Link>
-        <h1 className="text-2xl font-semibold mt-1">{employee?.name ?? "Employee"}</h1>
-        <p className="text-sm text-muted-foreground">
-          {employee?.store?.brand?.name} · {employee?.store?.name} · {employee?.employee_code}
-        </p>
-      </div>
+  const [bg, fg] = paletteFor(employee?.name ?? "?");
+  const pct = totalQuestions ? Math.round((answeredCount / totalQuestions) * 100) : 0;
+  const currentScore: number | null = null;
+  const firstUnansweredIdx = (questions ?? []).findIndex((q) => !answers[q.id] || !isAnswered(answers[q.id]));
 
-      <div className="rounded-xl border bg-card p-6">
-        <div className="flex items-baseline justify-between">
-          <div className="text-sm font-medium">Questionnaire</div>
-          {totalQuestions > 0 && (
-            <div className="text-xs text-muted-foreground">{answeredCount} / {totalQuestions} answered</div>
-          )}
+  return (
+    <div className="-mx-4 -my-6 sm:mx-0 sm:my-0 space-y-6">
+      {/* Dark navy hero */}
+      <section className="bg-[oklch(0.18_0.05_255)] text-[oklch(0.985_0.003_240)] px-5 pt-5 pb-6 sm:rounded-2xl">
+        {/* Top bar */}
+        <div className="flex items-center justify-between">
+          <Link to="/conduct" aria-label="Back" className="size-9 rounded-full inline-flex items-center justify-center hover:bg-white/10">
+            <ArrowLeft className="size-5"/>
+          </Link>
+          <div className="text-base font-semibold">Conduct Audit</div>
+          <button type="button" aria-label="More" className="size-9 rounded-full inline-flex items-center justify-center hover:bg-white/10">
+            <MoreVertical className="size-5"/>
+          </button>
         </div>
 
+        {/* Employee + score */}
+        <div className="mt-5 flex items-center gap-3">
+          <div className="size-12 rounded-full inline-flex items-center justify-center text-sm font-bold shrink-0"
+               style={{ background: bg, color: fg }}>
+            {initialsOf(employee?.name ?? "?")}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-base font-bold leading-tight truncate">{employee?.name ?? "Employee"}</div>
+            <div className="text-xs opacity-80 truncate">
+              {employee?.store?.brand?.name ?? "—"} · {employee?.store?.name ?? "—"}
+            </div>
+          </div>
+          <div className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-right shrink-0">
+            <div className="text-[10px] uppercase tracking-wide opacity-70">Current Score</div>
+            <div className="flex items-center justify-end gap-1.5">
+              <span className="text-lg font-bold text-[oklch(0.78_0.18_150)]">
+                {currentScore != null ? `${Math.round(Number(currentScore))}%` : "—"}
+              </span>
+              <TrendingUp className="size-3.5 text-[oklch(0.78_0.18_150)]"/>
+            </div>
+          </div>
+        </div>
+
+        {/* Progress */}
+        <div className="mt-5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="opacity-90">
+              Question {Math.min(answeredCount + 1, Math.max(totalQuestions, 1))} of {totalQuestions || "—"}
+            </span>
+            <span className="font-semibold">{pct}%</span>
+          </div>
+          <div className="mt-1.5 h-1.5 w-full bg-white/15 rounded-full overflow-hidden">
+            <div className="h-full bg-[oklch(0.72_0.18_150)] rounded-full transition-all" style={{ width: `${pct}%` }}/>
+          </div>
+        </div>
+
+        {/* Section card */}
+        <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3 flex items-center gap-3">
+          <div className="size-11 rounded-xl bg-[oklch(0.55_0.16_255)] inline-flex items-center justify-center shrink-0">
+            <Users className="size-5 text-white"/>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] uppercase tracking-wide opacity-70">Section 1</div>
+            <div className="text-sm font-semibold truncate">Questionnaire</div>
+            <div className="text-[11px] opacity-75">{answeredCount} / {totalQuestions} Questions</div>
+          </div>
+          <div className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-right shrink-0">
+            <div className="text-[10px] uppercase tracking-wide opacity-70 flex items-center gap-1 justify-end">
+              <Trophy className="size-3 text-[oklch(0.85_0.15_85)]"/> Section Score
+            </div>
+            <div className="text-lg font-bold text-[oklch(0.78_0.18_150)]">{computedScore.toFixed(0)}%</div>
+          </div>
+        </div>
+      </section>
+
+      <div className="px-4 sm:px-0 space-y-3">
         {!brandId ? (
-          <div className="mt-3 rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Loading employee…</div>
+          <div className="rounded-2xl border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">Loading employee…</div>
         ) : totalQuestions === 0 ? (
-          <div className="mt-3 rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+          <div className="rounded-2xl border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">
             No audit questions configured for {employee?.store?.brand?.name ?? "this brand"} yet.
           </div>
         ) : (
-          <ol className="mt-4 space-y-3">
-            {questions!.map((q, idx) => (
-              <li key={q.id} className="rounded-lg border p-4">
+          questions!.map((q, idx) => {
+            const a = answers[q.id];
+            const answered = a && isAnswered(a);
+            const isCurrent = !answered && idx === firstUnansweredIdx;
+            const label = a ? answerLabel(q, a) : null;
+            const max = Number(q.max_score) || computeMaxScore(q.question_type, q.options);
+            const earned = answered && a ? Math.round(scoreAnswer(q.question_type, q.options, a)) : 0;
+
+            return (
+              <div
+                key={q.id}
+                className={`rounded-2xl bg-card p-4 shadow-sm transition-colors ${
+                  isCurrent ? "border-2 border-[oklch(0.55_0.16_255)]" : "border"
+                }`}
+              >
                 <div className="flex items-start gap-3">
-                  <span className="text-xs text-muted-foreground mt-1 w-6 shrink-0">{idx + 1}.</span>
-                  <div className="flex-1 text-sm font-medium">
-                    {q.question_text}
-                    {q.required && <span className="text-destructive ml-1">*</span>}
+                  {/* Status dot */}
+                  <div className="pt-0.5 shrink-0">
+                    {answered ? (
+                      <div className="size-6 rounded-full bg-[oklch(0.68_0.16_150)] inline-flex items-center justify-center">
+                        <CheckCircle2 className="size-4 text-white"/>
+                      </div>
+                    ) : (
+                      <div className={`size-6 rounded-full border-2 ${isCurrent ? "border-[oklch(0.55_0.16_255)]" : "border-muted-foreground/40"}`}/>
+                    )}
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold leading-snug">
+                      <span className="mr-1">Q{idx + 1}.</span>
+                      {q.question_text}
+                      {q.required && <span className="text-destructive ml-1">*</span>}
+                    </div>
+                  </div>
+                  <button type="button" aria-label="Bookmark" className="text-muted-foreground hover:text-foreground shrink-0">
+                    <Bookmark className="size-4"/>
+                  </button>
                 </div>
+
+                {/* Input */}
                 <div className="mt-3 pl-9">
-                  {answers[q.id] && <QuestionInput q={q} answer={answers[q.id]} onChange={(a) => setA(q.id, a)}/>}
+                  {a && <QuestionInput q={q} answer={a} onChange={(na) => setA(q.id, na)}/>}
                 </div>
-              </li>
-            ))}
-          </ol>
+
+                {/* Footer pills */}
+                {answered && (label || max > 0) && (
+                  <div className="mt-3 pl-9 flex items-center justify-between gap-2">
+                    {label ? (
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium bg-[oklch(0.94_0.06_150)] text-[oklch(0.30_0.10_150)] truncate max-w-[60%]">
+                        {label}
+                      </span>
+                    ) : <span/>}
+                    {max > 0 && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold bg-[oklch(0.94_0.05_255)] text-[oklch(0.35_0.14_255)]">
+                          +{earned} {earned === 1 ? "pt" : "pts"}
+                        </span>
+                        <ChevronRight className="size-4 text-muted-foreground"/>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+
+        {/* Submit card */}
+        {totalQuestions > 0 && (
+          <form
+            onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}
+            className="rounded-2xl border bg-card p-5 space-y-4 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">Computed score</div>
+              <div className="text-2xl font-bold text-[oklch(0.68_0.16_150)]">{computedScore.toFixed(1)}</div>
+            </div>
+            <div>
+              <Label htmlFor="notes">Notes (optional)</Label>
+              <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="mt-1.5"/>
+            </div>
+            <Button
+              type="submit"
+              disabled={mutation.isPending || !requiredOk}
+              className="w-full h-12 rounded-xl bg-[oklch(0.18_0.05_255)] hover:bg-[oklch(0.22_0.06_255)] text-white"
+            >
+              {mutation.isPending ? "Submitting…" : requiredOk ? "Submit Audit" : "Answer all required questions"}
+            </Button>
+          </form>
         )}
       </div>
-
-      <form
-        onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}
-        className="rounded-xl border bg-card p-6 space-y-4"
-      >
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">Computed score</div>
-          <div className="text-2xl font-semibold">{computedScore.toFixed(1)}</div>
-        </div>
-        <div>
-          <Label htmlFor="notes">Notes (optional)</Label>
-          <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
-        </div>
-        <Button type="submit" disabled={mutation.isPending || !requiredOk} className="w-full">
-          {mutation.isPending ? "Submitting…" : requiredOk ? "Submit Audit" : "Answer all required questions to submit"}
-        </Button>
-      </form>
     </div>
   );
 }
 
 // =====================================================================
-// Per-type inputs
+// Per-type inputs (unchanged logic, lightly restyled)
 // =====================================================================
 
 function QuestionInput({ q, answer, onChange }: { q: Q; answer: Answer; onChange: (a: Answer) => void }) {
