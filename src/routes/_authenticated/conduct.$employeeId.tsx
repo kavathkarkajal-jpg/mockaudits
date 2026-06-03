@@ -176,7 +176,7 @@ function AuditPage() {
 
   const [bg, fg] = paletteFor(employee?.name ?? "?");
   const pct = totalQuestions ? Math.round((answeredCount / totalQuestions) * 100) : 0;
-  const currentScore = employee?.lastScore ?? employee?.avgScore ?? null;
+  const currentScore: number | null = null;
   const firstUnansweredIdx = (questions ?? []).findIndex((q) => !answers[q.id] || !isAnswered(answers[q.id]));
 
   return (
