@@ -61,6 +61,17 @@ function DashboardPage() {
         <Stat label="% Complete" value={`${summary?.pct ?? 0}%`} tone="accent"/>
       </div>
 
+      {(summary?.totalFlagged ?? 0) > 0 && (
+        <div className="rounded-xl border border-destructive/50 bg-destructive/10 text-destructive p-4 flex items-start gap-3">
+          <div className="text-3xl font-bold leading-none">{summary?.totalFlagged}</div>
+          <div className="text-sm">
+            <div className="font-semibold">re-audit(s) required this week</div>
+            <div className="opacity-90 mt-0.5">These employees scored below the brand threshold. Go to Conduct to start their re-audit.</div>
+          </div>
+        </div>
+      )}
+
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card title="Brand-wise completion (this week)">
           <ResponsiveContainer width="100%" height={260}>
