@@ -45,13 +45,15 @@ export const listEmployees = createServerFn({ method: "GET" })
 
     const empIds = (employees ?? []).map((e) => e.id);
     let completedSet = new Set<string>();
+    let reauditSet = new Set<string>();
     if (empIds.length) {
       const { data: sessions } = await supabase
         .from("audit_sessions")
-        .select("employee_id, score")
+        .select("employee_id, score, needs_reaudit")
         .eq("week_start_date", monday)
         .in("employee_id", empIds);
       completedSet = new Set((sessions ?? []).map((s) => s.employee_id));
+      reauditSet = new Set((sessions ?? []).filter((s) => s.needs_reaudit).map((s) => s.employee_id));
     }
 
     return (employees ?? []).map((e) => ({
@@ -74,8 +76,10 @@ export const listEmployees = createServerFn({ method: "GET" })
           }
         : null,
       completedThisWeek: completedSet.has(e.id),
+      needsReaudit: reauditSet.has(e.id),
     }));
   });
+
 
 // ------- Submit audit -------
 export const submitAudit = createServerFn({ method: "POST" })
