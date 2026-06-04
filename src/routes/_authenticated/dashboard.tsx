@@ -102,7 +102,7 @@ function DashboardPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-xs uppercase text-muted-foreground border-b">
-              <tr><th className="py-2 pr-4">Store</th><th className="py-2 pr-4">Code</th><th className="py-2 pr-4">Region</th><th className="py-2 pr-4 text-right">Due</th><th className="py-2 pr-4 text-right">Done</th><th className="py-2 pr-4 text-right">%</th></tr>
+              <tr><th className="py-2 pr-4">Store</th><th className="py-2 pr-4">Code</th><th className="py-2 pr-4">Region</th><th className="py-2 pr-4 text-right">Due</th><th className="py-2 pr-4 text-right">Done</th><th className="py-2 pr-4 text-right">Flagged</th><th className="py-2 pr-4 text-right">%</th></tr>
             </thead>
             <tbody>
               {filteredStores.map((s) => (
@@ -112,8 +112,12 @@ function DashboardPage() {
                   <td className="py-2 pr-4 text-muted-foreground">{s.region}</td>
                   <td className="py-2 pr-4 text-right">{s.due}</td>
                   <td className="py-2 pr-4 text-right">{s.completed}</td>
+                  <td className={`py-2 pr-4 text-right ${(s.flagged ?? 0) > 0 ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
+                    {(s.flagged ?? 0) > 0 ? s.flagged : "—"}
+                  </td>
                   <td className="py-2 pr-4 text-right font-semibold">{s.pct}%</td>
                 </tr>
+
               ))}
               {filteredStores.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-muted-foreground">No stores in scope.</td></tr>}
             </tbody>
