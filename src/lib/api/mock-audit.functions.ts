@@ -104,11 +104,30 @@ export const submitAudit = createServerFn({ method: "POST" })
         notes: data.notes ?? null,
         week_start_date: mondayISO(), // trigger will overwrite, but satisfy NOT NULL
       })
-      .select("id, score, submitted_at, week_start_date")
+      .select("id, score, submitted_at, week_start_date, needs_reaudit")
       .single();
     if (error) throw new Error(error.message);
     return row;
   });
+
+// ------- Toggle re-audit flag -------
+export const toggleReauditFlag = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({ session_id: z.string().uuid(), needs_reaudit: z.boolean() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("audit_sessions")
+      .update({
+        needs_reaudit: data.needs_reaudit,
+        reaudit_cleared_at: data.needs_reaudit ? null : new Date().toISOString(),
+      })
+      .eq("id", data.session_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 
 // ------- Dashboard -------
 export const getDashboard = createServerFn({ method: "GET" })
