@@ -86,6 +86,7 @@ function AuditPage() {
   const fetchEmps = useServerFn(listEmployees);
   const fetchQuestions = useServerFn(listQuestionsForBrand);
   const submit = useServerFn(submitAudit);
+  const toggleFlag = useServerFn(toggleReauditFlag);
 
   const { data: emps } = useQuery({ queryKey: ["employees"], queryFn: () => fetchEmps() });
   const employee = (emps ?? []).find((e) => e.id === employeeId);
@@ -99,7 +100,7 @@ function AuditPage() {
 
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
   const [notes, setNotes] = useState("");
-  const [result, setResult] = useState<{ score: number } | null>(null);
+  const [result, setResult] = useState<{ score: number; sessionId: string; needsReaudit: boolean } | null>(null);
 
   useEffect(() => {
     if (!questions) return;
