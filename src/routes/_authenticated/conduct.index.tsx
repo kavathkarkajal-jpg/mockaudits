@@ -161,8 +161,9 @@ function ConductPage() {
             {filtered.map((e) => {
               const [bg, fg] = paletteFor(e.name);
               const done = e.completedThisWeek;
+              const flagged = e.needsReaudit;
               return (
-                <div key={e.id} className="rounded-2xl border bg-card p-4 shadow-sm">
+                <div key={e.id} className={`rounded-2xl border bg-card p-4 shadow-sm ${flagged ? "border-destructive/50" : ""}`}>
                   <div className="flex items-start gap-3">
                     <div
                       className="size-14 rounded-full inline-flex items-center justify-center text-base font-bold shrink-0"
@@ -177,7 +178,7 @@ function ConductPage() {
                         {e.store?.brand?.name ?? "—"} · {e.store?.name ?? "—"}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex flex-col items-end gap-1 shrink-0">
                       {done ? (
                         <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium bg-[oklch(0.94_0.06_150)] text-[oklch(0.30_0.10_150)]">
                           <CheckCircle2 className="size-3"/> Completed
@@ -187,11 +188,22 @@ function ConductPage() {
                           <Clock className="size-3"/> Pending
                         </span>
                       )}
-                      <ChevronRight className="size-4 text-muted-foreground"/>
+                      {flagged && (
+                        <Badge variant="destructive" className="gap-1">
+                          <AlertTriangle className="size-3"/> Re-audit required
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   <div className="mt-3">
-                    {done ? (
+                    {flagged ? (
+                      <Button asChild variant="destructive" className="w-full h-11 rounded-xl">
+                        <Link to="/conduct/$employeeId" params={{ employeeId: e.id }}>
+                          <AlertTriangle className="size-4 mr-1"/>
+                          Start Re-audit
+                        </Link>
+                      </Button>
+                    ) : done ? (
                       <Button disabled variant="secondary" className="w-full h-11 rounded-xl">Done this week</Button>
                     ) : (
                       <Button asChild className="w-full h-11 rounded-xl bg-[oklch(0.18_0.05_255)] hover:bg-[oklch(0.22_0.06_255)] text-white">
