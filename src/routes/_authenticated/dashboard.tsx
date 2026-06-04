@@ -27,9 +27,11 @@ function DashboardPage() {
     if (brandFilter === "all") return data?.summary;
     const due = filteredBrands.reduce((a, b) => a + b.due, 0);
     const completed = filteredBrands.reduce((a, b) => a + b.completed, 0);
+    const flagged = filteredBrands.reduce((a, b) => a + (b.flagged ?? 0), 0);
     return {
       totalDue: due, totalCompleted: completed,
       totalPending: Math.max(due - completed, 0),
+      totalFlagged: flagged,
       pct: due ? Math.round((completed / due) * 100) : 0,
     };
   }, [data, brandFilter, filteredBrands]);
