@@ -297,6 +297,7 @@ export const upsertBrand = createServerFn({ method: "POST" })
           .string()
           .regex(/^#[0-9a-fA-F]{6}$/)
           .default("#0EA5E9"),
+        reaudit_threshold: z.number().min(0).max(100).nullable().default(null),
       })
       .parse(d),
   )
