@@ -119,7 +119,7 @@ function DashboardPage() {
                 </tr>
 
               ))}
-              {filteredStores.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-muted-foreground">No stores in scope.</td></tr>}
+              {filteredStores.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-muted-foreground">No stores in scope.</td></tr>}
             </tbody>
           </table>
         </div>
