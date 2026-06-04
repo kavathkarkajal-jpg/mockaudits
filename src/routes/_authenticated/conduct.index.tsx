@@ -4,11 +4,12 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { listEmployees } from "@/lib/api/mock-audit.functions";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Search, Filter, Tag, Store as StoreIcon, ClipboardCheck,
-  Clock, CheckCircle2, ChevronRight, Play, User,
+  Clock, CheckCircle2, ChevronRight, Play, User, AlertTriangle,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/conduct/")({ component: ConductPage });
