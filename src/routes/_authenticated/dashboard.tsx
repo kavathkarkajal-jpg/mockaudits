@@ -27,9 +27,11 @@ function DashboardPage() {
     if (brandFilter === "all") return data?.summary;
     const due = filteredBrands.reduce((a, b) => a + b.due, 0);
     const completed = filteredBrands.reduce((a, b) => a + b.completed, 0);
+    const flagged = filteredBrands.reduce((a, b) => a + (b.flagged ?? 0), 0);
     return {
       totalDue: due, totalCompleted: completed,
       totalPending: Math.max(due - completed, 0),
+      totalFlagged: flagged,
       pct: due ? Math.round((completed / due) * 100) : 0,
     };
   }, [data, brandFilter, filteredBrands]);
@@ -58,6 +60,17 @@ function DashboardPage() {
         <Stat label="Pending" value={summary?.totalPending ?? 0} tone="warning"/>
         <Stat label="% Complete" value={`${summary?.pct ?? 0}%`} tone="accent"/>
       </div>
+
+      {(summary?.totalFlagged ?? 0) > 0 && (
+        <div className="rounded-xl border border-destructive/50 bg-destructive/10 text-destructive p-4 flex items-start gap-3">
+          <div className="text-3xl font-bold leading-none">{summary?.totalFlagged}</div>
+          <div className="text-sm">
+            <div className="font-semibold">re-audit(s) required this week</div>
+            <div className="opacity-90 mt-0.5">These employees scored below the brand threshold. Go to Conduct to start their re-audit.</div>
+          </div>
+        </div>
+      )}
+
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card title="Brand-wise completion (this week)">
@@ -89,7 +102,7 @@ function DashboardPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-xs uppercase text-muted-foreground border-b">
-              <tr><th className="py-2 pr-4">Store</th><th className="py-2 pr-4">Code</th><th className="py-2 pr-4">Region</th><th className="py-2 pr-4 text-right">Due</th><th className="py-2 pr-4 text-right">Done</th><th className="py-2 pr-4 text-right">%</th></tr>
+              <tr><th className="py-2 pr-4">Store</th><th className="py-2 pr-4">Code</th><th className="py-2 pr-4">Region</th><th className="py-2 pr-4 text-right">Due</th><th className="py-2 pr-4 text-right">Done</th><th className="py-2 pr-4 text-right">Flagged</th><th className="py-2 pr-4 text-right">%</th></tr>
             </thead>
             <tbody>
               {filteredStores.map((s) => (
@@ -99,10 +112,14 @@ function DashboardPage() {
                   <td className="py-2 pr-4 text-muted-foreground">{s.region}</td>
                   <td className="py-2 pr-4 text-right">{s.due}</td>
                   <td className="py-2 pr-4 text-right">{s.completed}</td>
+                  <td className={`py-2 pr-4 text-right ${(s.flagged ?? 0) > 0 ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
+                    {(s.flagged ?? 0) > 0 ? s.flagged : "—"}
+                  </td>
                   <td className="py-2 pr-4 text-right font-semibold">{s.pct}%</td>
                 </tr>
+
               ))}
-              {filteredStores.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-muted-foreground">No stores in scope.</td></tr>}
+              {filteredStores.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-muted-foreground">No stores in scope.</td></tr>}
             </tbody>
           </table>
         </div>

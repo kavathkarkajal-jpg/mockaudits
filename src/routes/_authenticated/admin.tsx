@@ -61,24 +61,48 @@ function useInvalidate() {
   return () => { qc.invalidateQueries({ queryKey: ["admin-all"] }); qc.invalidateQueries({ queryKey: ["employees"] }); qc.invalidateQueries({ queryKey: ["dashboard"] }); };
 }
 
-function BrandsTab({ brands }: { brands: Array<{ id: string; name: string; primary_color: string }> }) {
+function BrandsTab({ brands }: { brands: Array<{ id: string; name: string; primary_color: string; reaudit_threshold: number | null }> }) {
   const inv = useInvalidate();
   const save = useServerFn(upsertBrand);
   const del = useServerFn(deleteBrand);
   const [name, setName] = useState(""); const [color, setColor] = useState("#0EA5E9");
-  const m = useMutation({ mutationFn: () => save({ data: { name, primary_color: color } }), onSuccess: () => { toast.success("Brand saved"); setName(""); inv(); }, onError: (e: Error) => toast.error(e.message) });
+  const [threshold, setThreshold] = useState<string>("");
+  const m = useMutation({
+    mutationFn: () => save({ data: {
+      name,
+      primary_color: color,
+      reaudit_threshold: threshold.trim() === "" ? null : Number(threshold),
+    } }),
+    onSuccess: () => { toast.success("Brand saved"); setName(""); setThreshold(""); inv(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
   const d = useMutation({ mutationFn: (id: string) => del({ data: { id } }), onSuccess: () => { toast.success("Brand deleted"); inv(); }, onError: (e: Error) => toast.error(e.message) });
   return (
     <div className="space-y-4 mt-4">
       <form onSubmit={(e) => { e.preventDefault(); m.mutate(); }} className="flex flex-wrap gap-2 items-end rounded-xl border bg-card p-4">
         <div><Label>Brand name</Label><Input value={name} onChange={(e) => setName(e.target.value)} required/></div>
         <div><Label>Accent color</Label><Input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="w-16 p-1 h-9"/></div>
+        <div>
+          <Label>Re-audit threshold (%)</Label>
+          <Input
+            type="number" min={0} max={100} step={1}
+            placeholder="e.g. 60 — leave blank to disable"
+            value={threshold}
+            onChange={(e) => setThreshold(e.target.value)}
+            className="w-64"
+          />
+        </div>
         <Button type="submit" disabled={m.isPending}>Add brand</Button>
       </form>
-      <RowsTable rows={brands} columns={[{ k: "name", h: "Name" }, { k: "primary_color", h: "Color" }]} onDelete={(r) => d.mutate(r.id)} />
+      <RowsTable
+        rows={brands.map((b) => ({ ...b, reaudit_label: b.reaudit_threshold == null ? "—" : `${b.reaudit_threshold}%` }))}
+        columns={[{ k: "name", h: "Name" }, { k: "primary_color", h: "Color" }, { k: "reaudit_label", h: "Re-audit below" }]}
+        onDelete={(r) => d.mutate(r.id)}
+      />
     </div>
   );
 }
+
 
 function StoresTab({ brands, stores }: { brands: any[]; stores: any[] }) {
   const inv = useInvalidate();

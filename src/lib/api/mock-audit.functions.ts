@@ -45,13 +45,15 @@ export const listEmployees = createServerFn({ method: "GET" })
 
     const empIds = (employees ?? []).map((e) => e.id);
     let completedSet = new Set<string>();
+    let reauditSet = new Set<string>();
     if (empIds.length) {
       const { data: sessions } = await supabase
         .from("audit_sessions")
-        .select("employee_id, score")
+        .select("employee_id, score, needs_reaudit")
         .eq("week_start_date", monday)
         .in("employee_id", empIds);
       completedSet = new Set((sessions ?? []).map((s) => s.employee_id));
+      reauditSet = new Set((sessions ?? []).filter((s) => s.needs_reaudit).map((s) => s.employee_id));
     }
 
     return (employees ?? []).map((e) => ({
@@ -74,8 +76,10 @@ export const listEmployees = createServerFn({ method: "GET" })
           }
         : null,
       completedThisWeek: completedSet.has(e.id),
+      needsReaudit: reauditSet.has(e.id),
     }));
   });
+
 
 // ------- Submit audit -------
 export const submitAudit = createServerFn({ method: "POST" })
@@ -100,11 +104,30 @@ export const submitAudit = createServerFn({ method: "POST" })
         notes: data.notes ?? null,
         week_start_date: mondayISO(), // trigger will overwrite, but satisfy NOT NULL
       })
-      .select("id, score, submitted_at, week_start_date")
+      .select("id, score, submitted_at, week_start_date, needs_reaudit")
       .single();
     if (error) throw new Error(error.message);
     return row;
   });
+
+// ------- Toggle re-audit flag -------
+export const toggleReauditFlag = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({ session_id: z.string().uuid(), needs_reaudit: z.boolean() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("audit_sessions")
+      .update({
+        needs_reaudit: data.needs_reaudit,
+        reaudit_cleared_at: data.needs_reaudit ? null : new Date().toISOString(),
+      })
+      .eq("id", data.session_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 
 // ------- Dashboard -------
 export const getDashboard = createServerFn({ method: "GET" })
@@ -146,10 +169,10 @@ export const getDashboard = createServerFn({ method: "GET" })
     const { data: weekSessions } = empIds.length
       ? await supabase
           .from("audit_sessions")
-          .select("employee_id, week_start_date, score")
+          .select("employee_id, week_start_date, score, needs_reaudit")
           .gte("week_start_date", weeks[0])
           .in("employee_id", empIds)
-      : { data: [] as Array<{ employee_id: string; week_start_date: string; score: number }> };
+      : { data: [] as Array<{ employee_id: string; week_start_date: string; score: number; needs_reaudit: boolean }> };
 
     const storeById = new Map((stores ?? []).map((s) => [s.id, s]));
     const empToStore = new Map((employees ?? []).map((e) => [e.id, e.store_id]));
@@ -158,14 +181,21 @@ export const getDashboard = createServerFn({ method: "GET" })
     const currentWeekCompleted = new Set(
       (weekSessions ?? []).filter((s) => s.week_start_date === monday).map((s) => s.employee_id),
     );
+    const currentWeekReaudit = new Set(
+      (weekSessions ?? [])
+        .filter((s) => s.week_start_date === monday && s.needs_reaudit)
+        .map((s) => s.employee_id),
+    );
 
     const storeStats = (stores ?? []).map((s) => {
       const due = empByStore.get(s.id) ?? 0;
       let done = 0;
+      let flagged = 0;
       (employees ?? [])
         .filter((e) => e.store_id === s.id)
         .forEach((e) => {
           if (currentWeekCompleted.has(e.id)) done += 1;
+          if (currentWeekReaudit.has(e.id)) flagged += 1;
         });
       return {
         store_id: s.id,
@@ -175,6 +205,7 @@ export const getDashboard = createServerFn({ method: "GET" })
         region: s.region,
         due,
         completed: done,
+        flagged,
         pct: due ? Math.round((done / due) * 100) : 0,
       };
     });
@@ -183,12 +214,14 @@ export const getDashboard = createServerFn({ method: "GET" })
       const ss = storeStats.filter((s) => s.brand_id === b.id);
       const due = ss.reduce((a, x) => a + x.due, 0);
       const completed = ss.reduce((a, x) => a + x.completed, 0);
+      const flagged = ss.reduce((a, x) => a + x.flagged, 0);
       return {
         brand_id: b.id,
         brand_name: b.name,
         color: b.primary_color,
         due,
         completed,
+        flagged,
         pending: Math.max(due - completed, 0),
         pct: due ? Math.round((completed / due) * 100) : 0,
       };
@@ -196,6 +229,7 @@ export const getDashboard = createServerFn({ method: "GET" })
 
     const totalDue = brandStats.reduce((a, x) => a + x.due, 0);
     const totalCompleted = brandStats.reduce((a, x) => a + x.completed, 0);
+    const totalFlagged = brandStats.reduce((a, x) => a + x.flagged, 0);
 
     // Week-on-week trend (last 8 weeks): completed unique employees / due (constant per current employees)
     const trend = weeks.map((w) => {
@@ -218,6 +252,7 @@ export const getDashboard = createServerFn({ method: "GET" })
         totalDue,
         totalCompleted,
         totalPending: Math.max(totalDue - totalCompleted, 0),
+        totalFlagged,
         pct: totalDue ? Math.round((totalCompleted / totalDue) * 100) : 0,
       },
       brandStats,
@@ -225,6 +260,7 @@ export const getDashboard = createServerFn({ method: "GET" })
       trend,
     };
   });
+
 
 // ------- ADMIN: lists -------
 export const adminListAll = createServerFn({ method: "GET" })
@@ -261,6 +297,7 @@ export const upsertBrand = createServerFn({ method: "POST" })
           .string()
           .regex(/^#[0-9a-fA-F]{6}$/)
           .default("#0EA5E9"),
+        reaudit_threshold: z.number().min(0).max(100).nullable().default(null),
       })
       .parse(d),
   )

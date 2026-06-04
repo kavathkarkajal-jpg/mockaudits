@@ -6,6 +6,7 @@ import {
   listEmployees,
   listQuestionsForBrand,
   submitAudit,
+  toggleReauditFlag,
 } from "@/lib/api/mock-audit.functions";
 import {
   type Answer, type ChoiceOption, type LikertOptions, type QuestionType, type RatingOptions,
@@ -19,7 +20,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Star, ArrowUp, ArrowDown, ArrowLeft, MoreVertical, Bookmark,
-  CheckCircle2, ChevronRight, Trophy, Users, TrendingUp,
+  CheckCircle2, ChevronRight, Trophy, Users, TrendingUp, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -85,6 +86,7 @@ function AuditPage() {
   const fetchEmps = useServerFn(listEmployees);
   const fetchQuestions = useServerFn(listQuestionsForBrand);
   const submit = useServerFn(submitAudit);
+  const toggleFlag = useServerFn(toggleReauditFlag);
 
   const { data: emps } = useQuery({ queryKey: ["employees"], queryFn: () => fetchEmps() });
   const employee = (emps ?? []).find((e) => e.id === employeeId);
@@ -98,7 +100,7 @@ function AuditPage() {
 
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
   const [notes, setNotes] = useState("");
-  const [result, setResult] = useState<{ score: number } | null>(null);
+  const [result, setResult] = useState<{ score: number; sessionId: string; needsReaudit: boolean } | null>(null);
 
   useEffect(() => {
     if (!questions) return;
@@ -149,10 +151,22 @@ function AuditPage() {
         },
       }),
     onSuccess: (r) => {
-      setResult({ score: Number(r.score) });
+      setResult({ score: Number(r.score), sessionId: r.id, needsReaudit: !!r.needs_reaudit });
       qc.invalidateQueries({ queryKey: ["employees"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Audit submitted");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const flagMut = useMutation({
+    mutationFn: (needs: boolean) =>
+      toggleFlag({ data: { session_id: result!.sessionId, needs_reaudit: needs } }),
+    onSuccess: (_d, needs) => {
+      setResult((p) => (p ? { ...p, needsReaudit: needs } : p));
+      qc.invalidateQueries({ queryKey: ["employees"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(needs ? "Flagged for re-audit" : "Re-audit flag cleared");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -162,8 +176,40 @@ function AuditPage() {
       <div className="max-w-md mx-auto rounded-2xl bg-card p-8 text-center shadow border">
         <div className="text-sm text-muted-foreground">Audit complete for</div>
         <h2 className="text-xl font-semibold">{employee.name}</h2>
-        <div className="mt-6 text-5xl font-bold text-[oklch(0.68_0.16_150)]">{result.score.toFixed(1)}</div>
+        <div className={`mt-6 text-5xl font-bold ${result.needsReaudit ? "text-destructive" : "text-[oklch(0.68_0.16_150)]"}`}>
+          {result.score.toFixed(1)}
+        </div>
         <div className="text-xs text-muted-foreground mt-1">Score (out of 100)</div>
+
+        {result.needsReaudit ? (
+          <div className="mt-5 rounded-xl border border-destructive/50 bg-destructive/10 text-destructive p-4 text-left">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="size-5 shrink-0 mt-0.5"/>
+              <div className="text-sm">
+                <div className="font-semibold">Flagged for re-audit</div>
+                <div className="mt-1 opacity-90">Score is below the threshold for this brand. A re-audit is required.</div>
+                <button
+                  type="button"
+                  onClick={() => flagMut.mutate(false)}
+                  disabled={flagMut.isPending}
+                  className="mt-2 text-xs underline underline-offset-2 hover:opacity-80 disabled:opacity-50"
+                >
+                  Clear flag (override)
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => flagMut.mutate(true)}
+            disabled={flagMut.isPending}
+            className="mt-3 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+          >
+            Flag for re-audit manually
+          </button>
+        )}
+
         <div className="mt-6 flex gap-2 justify-center">
           <Button asChild variant="outline"><Link to="/conduct">Back to list</Link></Button>
           <Button onClick={() => navigate({ to: "/dashboard" })}>View Dashboard</Button>
@@ -171,6 +217,7 @@ function AuditPage() {
       </div>
     );
   }
+
 
   const setA = (id: string, a: Answer) => setAnswers((p) => ({ ...p, [id]: a }));
 

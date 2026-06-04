@@ -64,7 +64,9 @@ export type Database = {
           created_at: string
           employee_id: string
           id: string
+          needs_reaudit: boolean
           notes: string | null
+          reaudit_cleared_at: string | null
           score: number
           submitted_at: string
           week_start_date: string
@@ -74,7 +76,9 @@ export type Database = {
           created_at?: string
           employee_id: string
           id?: string
+          needs_reaudit?: boolean
           notes?: string | null
+          reaudit_cleared_at?: string | null
           score?: number
           submitted_at?: string
           week_start_date: string
@@ -84,7 +88,9 @@ export type Database = {
           created_at?: string
           employee_id?: string
           id?: string
+          needs_reaudit?: boolean
           notes?: string | null
+          reaudit_cleared_at?: string | null
           score?: number
           submitted_at?: string
           week_start_date?: string
@@ -105,18 +111,21 @@ export type Database = {
           id: string
           name: string
           primary_color: string
+          reaudit_threshold: number | null
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
           primary_color?: string
+          reaudit_threshold?: number | null
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
           primary_color?: string
+          reaudit_threshold?: number | null
         }
         Relationships: []
       }
