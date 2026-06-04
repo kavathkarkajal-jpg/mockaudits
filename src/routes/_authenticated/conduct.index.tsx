@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Search, Filter, Tag, Store as StoreIcon, ClipboardCheck,
-  Clock, CheckCircle2, ChevronRight, Play, User, AlertTriangle,
+  Clock, CheckCircle2, Play, User, AlertTriangle,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/conduct/")({ component: ConductPage });
