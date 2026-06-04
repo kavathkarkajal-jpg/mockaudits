@@ -151,10 +151,22 @@ function AuditPage() {
         },
       }),
     onSuccess: (r) => {
-      setResult({ score: Number(r.score) });
+      setResult({ score: Number(r.score), sessionId: r.id, needsReaudit: !!r.needs_reaudit });
       qc.invalidateQueries({ queryKey: ["employees"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Audit submitted");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const flagMut = useMutation({
+    mutationFn: (needs: boolean) =>
+      toggleFlag({ data: { session_id: result!.sessionId, needs_reaudit: needs } }),
+    onSuccess: (_d, needs) => {
+      setResult((p) => (p ? { ...p, needsReaudit: needs } : p));
+      qc.invalidateQueries({ queryKey: ["employees"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(needs ? "Flagged for re-audit" : "Re-audit flag cleared");
     },
     onError: (e: Error) => toast.error(e.message),
   });
