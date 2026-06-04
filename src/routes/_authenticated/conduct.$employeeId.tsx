@@ -20,7 +20,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Star, ArrowUp, ArrowDown, ArrowLeft, MoreVertical, Bookmark,
-  CheckCircle2, ChevronRight, Trophy, Users, TrendingUp,
+  CheckCircle2, ChevronRight, Trophy, Users, TrendingUp, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 
