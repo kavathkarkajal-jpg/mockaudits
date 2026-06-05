@@ -308,62 +308,108 @@ function DashboardPage() {
 
 
       {/* Store breakdown */}
-      <Panel
-        title="Store-by-store breakdown"
-        subtitle={`${filteredStores.length} store${filteredStores.length === 1 ? "" : "s"} in scope`}
-        icon={<Activity className="size-4" />}
-      >
-        <div className="overflow-x-auto -mx-5 px-5">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground border-b">
-                <th className="py-3 pr-4 font-medium">Store</th>
-                <th className="py-3 pr-4 font-medium">Code</th>
-                <th className="py-3 pr-4 font-medium">Region</th>
-                <th className="py-3 pr-4 font-medium text-right">Due</th>
-                <th className="py-3 pr-4 font-medium text-right">Done</th>
-                <th className="py-3 pr-4 font-medium text-right">Flagged</th>
-                <th className="py-3 pr-0 font-medium text-right w-44">Progress</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredStores.map((s) => (
-                <tr key={s.store_id} className="border-b last:border-0 hover:bg-muted/40 transition-colors">
-                  <td className="py-3 pr-4 font-medium">{s.store_name}</td>
-                  <td className="py-3 pr-4 text-muted-foreground font-mono text-xs">{s.store_code}</td>
-                  <td className="py-3 pr-4 text-muted-foreground">{s.region}</td>
-                  <td className="py-3 pr-4 text-right tabular-nums">{s.due}</td>
-                  <td className="py-3 pr-4 text-right tabular-nums">{s.completed}</td>
-                  <td className={`py-3 pr-4 text-right tabular-nums ${(s.flagged ?? 0) > 0 ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
-                    {(s.flagged ?? 0) > 0 ? s.flagged : "—"}
-                  </td>
-                  <td className="py-3 pr-0">
-                    <div className="flex items-center justify-end gap-3">
-                      <div className="h-1.5 w-24 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${Math.min(s.pct, 100)}%`,
-                            background: s.pct >= 80
-                              ? "oklch(0.68 0.16 150)"
-                              : s.pct >= 50
-                              ? "oklch(0.55 0.16 255)"
-                              : "oklch(0.78 0.16 75)",
-                          }}
-                        />
-                      </div>
-                      <span className="text-xs font-semibold tabular-nums w-9 text-right">{s.pct}%</span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {filteredStores.length === 0 && (
-                <tr><td colSpan={7} className="py-10 text-center text-muted-foreground">No stores in scope.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
+      {(() => {
+        const totalFlaggedStores = filteredStores.filter((s) => (s.flagged ?? 0) > 0).length;
+        return (
+          <Panel
+            title="Store-by-store breakdown"
+            subtitle={`${filteredStores.length} store${filteredStores.length === 1 ? "" : "s"} in scope${totalFlaggedStores ? ` · ${totalFlaggedStores} need attention` : ""}`}
+            icon={<Activity className="size-4" />}
+          >
+            <div className="overflow-x-auto -mx-5">
+              <table className="w-full text-sm border-separate border-spacing-0">
+                <thead>
+                  <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground/80">
+                    <th className="py-3 pl-5 pr-4 font-semibold">Store</th>
+                    <th className="py-3 pr-4 font-semibold">Region</th>
+                    <th className="py-3 pr-4 font-semibold text-right">Due</th>
+                    <th className="py-3 pr-4 font-semibold text-right">Done</th>
+                    <th className="py-3 pr-4 font-semibold text-right">Flagged</th>
+                    <th className="py-3 pr-5 font-semibold text-right w-[260px]">Completion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredStores.map((s, idx) => {
+                    const flagged = s.flagged ?? 0;
+                    const isFlagged = flagged > 0;
+                    const tone =
+                      s.pct >= 80
+                        ? { bar: "oklch(0.68 0.16 150)", chip: "bg-[oklch(0.68_0.16_150)]/15 text-[oklch(0.40_0.14_150)]", label: "On track" }
+                        : s.pct >= 50
+                        ? { bar: "oklch(0.55 0.16 255)", chip: "bg-[oklch(0.55_0.16_255)]/12 text-[oklch(0.42_0.16_255)]", label: "In progress" }
+                        : { bar: "oklch(0.78 0.16 75)", chip: "bg-[oklch(0.78_0.16_75)]/20 text-[oklch(0.45_0.16_75)]", label: "At risk" };
+                    return (
+                      <tr
+                        key={s.store_id}
+                        className={`group transition-colors ${isFlagged ? "bg-destructive/[0.03] hover:bg-destructive/[0.06]" : idx % 2 === 1 ? "bg-muted/20 hover:bg-muted/40" : "hover:bg-muted/40"}`}
+                      >
+                        <td className={`py-3.5 pl-5 pr-4 border-t relative ${isFlagged ? "border-destructive/15" : "border-border/60"}`}>
+                          {isFlagged && (
+                            <span aria-hidden className="absolute left-0 top-1/2 -translate-y-1/2 h-7 w-0.5 rounded-r bg-destructive" />
+                          )}
+                          <div className="flex items-center gap-2.5">
+                            <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-[oklch(0.55_0.16_255)]/10 to-[oklch(0.72_0.13_195)]/10 text-[10px] font-bold text-[oklch(0.42_0.16_255)] tracking-tight">
+                              {s.store_name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-semibold text-foreground leading-tight truncate">{s.store_name}</div>
+                              <div className="text-[10px] text-muted-foreground font-mono mt-0.5">{s.store_code}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className={`py-3.5 pr-4 border-t text-muted-foreground ${isFlagged ? "border-destructive/15" : "border-border/60"}`}>
+                          {s.region}
+                        </td>
+                        <td className={`py-3.5 pr-4 border-t text-right tabular-nums text-muted-foreground ${isFlagged ? "border-destructive/15" : "border-border/60"}`}>
+                          {s.due}
+                        </td>
+                        <td className={`py-3.5 pr-4 border-t text-right tabular-nums font-medium text-foreground ${isFlagged ? "border-destructive/15" : "border-border/60"}`}>
+                          {s.completed}
+                        </td>
+                        <td className={`py-3.5 pr-4 border-t text-right ${isFlagged ? "border-destructive/15" : "border-border/60"}`}>
+                          {isFlagged ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 text-destructive px-2 py-0.5 text-[11px] font-semibold tabular-nums ring-1 ring-destructive/20">
+                              <AlertTriangle className="size-3" />
+                              {flagged}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/60 tabular-nums">—</span>
+                          )}
+                        </td>
+                        <td className={`py-3.5 pr-5 border-t ${isFlagged ? "border-destructive/15" : "border-border/60"}`}>
+                          <div className="flex items-center justify-end gap-3">
+                            <span className={`hidden md:inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${tone.chip}`}>
+                              {tone.label}
+                            </span>
+                            <div className="relative h-2 w-28 rounded-full bg-muted overflow-hidden ring-1 ring-border/60">
+                              <div
+                                className="h-full rounded-full transition-all"
+                                style={{
+                                  width: `${Math.min(s.pct, 100)}%`,
+                                  background: `linear-gradient(90deg, ${tone.bar}, ${tone.bar})`,
+                                  boxShadow: `0 0 8px -2px ${tone.bar}`,
+                                }}
+                              />
+                            </div>
+                            <span className="text-sm font-bold tabular-nums w-11 text-right tracking-tight">{s.pct}<span className="text-[10px] font-semibold text-muted-foreground ml-0.5">%</span></span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filteredStores.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-muted-foreground border-t border-border/60">
+                        No stores in scope.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+        );
+      })()}
     </div>
   );
 }
