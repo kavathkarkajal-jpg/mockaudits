@@ -1,15 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { getDashboard } from "@/lib/api/mock-audit.functions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import {
   Activity, AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, ClipboardList,
-  Clock, Filter, TrendingUp,
+  Clock, Filter, ShieldAlert, TrendingUp,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
