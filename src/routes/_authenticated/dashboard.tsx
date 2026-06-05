@@ -277,37 +277,99 @@ function DashboardPage() {
   );
 }
 
-function Stat({
-  label, value, icon, tone = "neutral", progress,
+function HeroKpi({ pct, completed, due }: { pct: number; completed: number; due: number }) {
+  const status = pct >= 80 ? "On track" : pct >= 50 ? "In progress" : "Needs attention";
+  const statusTone =
+    pct >= 80
+      ? "bg-[oklch(0.68_0.16_150)]/15 text-[oklch(0.42_0.14_150)]"
+      : pct >= 50
+      ? "bg-[oklch(0.55_0.16_255)]/12 text-[oklch(0.42_0.16_255)]"
+      : "bg-[oklch(0.78_0.16_75)]/20 text-[oklch(0.45_0.16_75)]";
+
+  const circumference = 2 * Math.PI * 42;
+  const dash = (Math.min(Math.max(pct, 0), 100) / 100) * circumference;
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border bg-card p-6 shadow-sm">
+      <div
+        aria-hidden
+        className="absolute -right-12 -top-12 size-44 rounded-full bg-gradient-to-br from-[oklch(0.55_0.16_255)]/10 to-[oklch(0.72_0.13_195)]/10 blur-2xl"
+      />
+      <div className="relative flex items-center gap-5">
+        {/* Ring */}
+        <div className="relative shrink-0">
+          <svg width="104" height="104" viewBox="0 0 104 104" className="-rotate-90">
+            <circle cx="52" cy="52" r="42" fill="none" stroke="oklch(0.92 0.01 250)" strokeWidth="10" />
+            <circle
+              cx="52" cy="52" r="42" fill="none"
+              stroke="url(#kpiRing)"
+              strokeWidth="10"
+              strokeLinecap="round"
+              strokeDasharray={`${dash} ${circumference}`}
+              className="transition-[stroke-dasharray] duration-700"
+            />
+            <defs>
+              <linearGradient id="kpiRing" x1="0" x2="1" y1="0" y2="1">
+                <stop offset="0%" stopColor="oklch(0.55 0.16 255)" />
+                <stop offset="100%" stopColor="oklch(0.72 0.13 195)" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <div className="text-2xl font-bold tabular-nums tracking-tight leading-none">{pct}<span className="text-base text-muted-foreground">%</span></div>
+          </div>
+        </div>
+
+        {/* Text */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Completion</span>
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusTone}`}>
+              {status}
+            </span>
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-3xl font-bold tabular-nums tracking-tight">{completed}</span>
+            <span className="text-base text-muted-foreground">/ {due}</span>
+            <span className="text-xs text-muted-foreground">audits done</span>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {due === 0
+              ? "No audits scheduled this week."
+              : pct >= 100
+              ? "Every audit complete. Excellent work."
+              : `${due - completed} remaining to hit target.`}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MiniKpi({
+  label, value, icon, tone, caption,
 }: {
   label: string;
   value: number | string;
-  icon?: React.ReactNode;
-  tone?: "neutral" | "success" | "warning" | "accent";
-  progress?: number;
+  icon: React.ReactNode;
+  tone: "neutral" | "success" | "warning";
+  caption?: string;
 }) {
-  const toneClass = {
-    neutral: "text-foreground bg-muted text-muted-foreground",
-    success: "text-[oklch(0.45_0.14_150)] bg-[oklch(0.68_0.16_150)]/15",
-    warning: "text-[oklch(0.48_0.16_75)] bg-[oklch(0.78_0.16_75)]/20",
-    accent: "text-[oklch(0.45_0.16_255)] bg-[oklch(0.55_0.16_255)]/12",
+  const cfg = {
+    neutral: { iconBg: "bg-muted text-muted-foreground", accent: "bg-border" },
+    success: { iconBg: "bg-[oklch(0.68_0.16_150)]/15 text-[oklch(0.42_0.14_150)]", accent: "bg-[oklch(0.68_0.16_150)]" },
+    warning: { iconBg: "bg-[oklch(0.78_0.16_75)]/20 text-[oklch(0.48_0.16_75)]", accent: "bg-[oklch(0.78_0.16_75)]" },
   }[tone];
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border bg-card p-5 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between gap-3">
-        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</div>
-        <div className={`flex size-8 items-center justify-center rounded-lg ${toneClass}`}>{icon}</div>
+    <div className="relative overflow-hidden rounded-2xl border bg-card p-5 shadow-sm hover:shadow-md transition-shadow">
+      <span aria-hidden className={`absolute inset-y-0 left-0 w-0.5 ${cfg.accent}`} />
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+        <span className={`flex size-7 items-center justify-center rounded-md ${cfg.iconBg}`}>{icon}</span>
       </div>
-      <div className="mt-3 text-3xl font-bold tabular-nums tracking-tight">{value}</div>
-      {typeof progress === "number" && (
-        <div className="mt-3 h-1.5 w-full rounded-full bg-muted overflow-hidden">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-[oklch(0.55_0.16_255)] to-[oklch(0.72_0.13_195)] transition-all"
-            style={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }}
-          />
-        </div>
-      )}
+      <div className="mt-2 text-3xl font-bold tabular-nums tracking-tight">{value}</div>
+      {caption && <div className="mt-1 text-[11px] text-muted-foreground">{caption}</div>}
     </div>
   );
 }
