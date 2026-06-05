@@ -492,3 +492,118 @@ function Panel({
     </div>
   );
 }
+
+function InsightCard({
+  eyebrow, title, subtitle, icon, headline, headlineLabel, headlineDelta,
+  legend, className, children,
+}: {
+  eyebrow?: string;
+  title: string;
+  subtitle?: string;
+  icon?: React.ReactNode;
+  headline?: string;
+  headlineLabel?: string;
+  headlineDelta?: number;
+  legend?: { label: string; color: string }[];
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const deltaTone =
+    headlineDelta === undefined || headlineDelta === 0
+      ? "text-muted-foreground bg-muted"
+      : headlineDelta > 0
+      ? "text-[oklch(0.42_0.14_150)] bg-[oklch(0.68_0.16_150)]/15"
+      : "text-destructive bg-destructive/10";
+  return (
+    <div
+      className={`group relative overflow-hidden rounded-2xl border bg-card shadow-sm hover:shadow-md transition-shadow ${className ?? ""}`}
+    >
+      <div
+        aria-hidden
+        className="absolute -right-16 -top-16 size-48 rounded-full bg-gradient-to-br from-[oklch(0.55_0.16_255)]/8 to-[oklch(0.72_0.13_195)]/8 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity"
+      />
+      <div className="relative flex flex-wrap items-start justify-between gap-4 p-5 pb-3">
+        <div className="flex items-start gap-3 min-w-0">
+          {icon && (
+            <div className="flex size-9 items-center justify-center rounded-lg bg-[oklch(0.55_0.16_255)]/10 text-[oklch(0.45_0.16_255)] ring-1 ring-[oklch(0.55_0.16_255)]/15">
+              {icon}
+            </div>
+          )}
+          <div className="min-w-0">
+            {eyebrow && (
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                {eyebrow}
+              </div>
+            )}
+            <h3 className="text-base font-semibold tracking-tight text-foreground leading-tight mt-0.5">
+              {title}
+            </h3>
+            {subtitle && (
+              <p className="text-xs text-muted-foreground mt-1 max-w-md">{subtitle}</p>
+            )}
+          </div>
+        </div>
+        {headline !== undefined && (
+          <div className="text-right shrink-0">
+            <div className="flex items-baseline justify-end gap-2">
+              <span className="text-2xl font-bold tabular-nums tracking-tight">{headline}</span>
+              {headlineDelta !== undefined && (
+                <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${deltaTone}`}>
+                  {headlineDelta > 0 ? "▲" : headlineDelta < 0 ? "▼" : "•"}
+                  {Math.abs(headlineDelta)}pt
+                </span>
+              )}
+            </div>
+            {headlineLabel && (
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">
+                {headlineLabel}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      {legend && legend.length > 0 && (
+        <div className="relative flex flex-wrap items-center gap-3 px-5 pb-2">
+          {legend.map((l) => (
+            <span key={l.label} className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className="size-2 rounded-sm" style={{ background: l.color }} />
+              {l.label}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="relative px-2 pb-4 pt-1">{children}</div>
+    </div>
+  );
+}
+
+function ChartTooltip({
+  active, payload, label, valueSuffix = "",
+}: {
+  active?: boolean;
+  payload?: Array<{ name?: string; value?: number | string; color?: string; dataKey?: string }>;
+  label?: string | number;
+  valueSuffix?: string;
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-border/70 bg-popover/95 backdrop-blur px-3 py-2 shadow-lg text-xs min-w-[140px]">
+      {label !== undefined && (
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
+          {String(label)}
+        </div>
+      )}
+      <div className="space-y-1">
+        {payload.map((p, i) => (
+          <div key={i} className="flex items-center justify-between gap-4">
+            <span className="inline-flex items-center gap-1.5 text-foreground">
+              <span className="size-2 rounded-sm" style={{ background: p.color }} />
+              {p.name ?? p.dataKey}
+            </span>
+            <span className="font-semibold tabular-nums">{p.value}{valueSuffix}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
