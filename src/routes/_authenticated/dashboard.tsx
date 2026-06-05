@@ -95,18 +95,39 @@ function DashboardPage() {
         </div>
       </header>
 
-      {/* Stat cards */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Stat label="Audits Due" value={summary?.totalDue ?? 0} icon={<ClipboardList className="size-4" />} tone="neutral" />
-        <Stat label="Completed" value={summary?.totalCompleted ?? 0} icon={<CheckCircle2 className="size-4" />} tone="success" />
-        <Stat label="Pending" value={summary?.totalPending ?? 0} icon={<Clock className="size-4" />} tone="warning" />
-        <Stat
-          label="Completion"
-          value={`${pct}%`}
-          icon={<Percent className="size-4" />}
-          tone="accent"
-          progress={pct}
+      {/* KPI summary */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Hero KPI: % Complete */}
+        <HeroKpi
+          pct={pct}
+          completed={summary?.totalCompleted ?? 0}
+          due={summary?.totalDue ?? 0}
         />
+
+        {/* Supporting KPIs */}
+        <div className="grid grid-cols-3 gap-4 lg:col-span-2">
+          <MiniKpi
+            label="Audits Due"
+            value={summary?.totalDue ?? 0}
+            icon={<ClipboardList className="size-4" />}
+            tone="neutral"
+            caption="Scheduled this week"
+          />
+          <MiniKpi
+            label="Completed"
+            value={summary?.totalCompleted ?? 0}
+            icon={<CheckCircle2 className="size-4" />}
+            tone="success"
+            caption={`${pct}% of total`}
+          />
+          <MiniKpi
+            label="Pending"
+            value={summary?.totalPending ?? 0}
+            icon={<Clock className="size-4" />}
+            tone="warning"
+            caption={(summary?.totalPending ?? 0) === 0 ? "All clear" : "Still to audit"}
+          />
+        </div>
       </section>
 
       {/* Re-audit banner */}
