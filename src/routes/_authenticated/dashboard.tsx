@@ -178,69 +178,134 @@ function DashboardPage() {
       )}
 
       {/* Charts */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Panel
+      <section className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+        {/* Brand-wise completion */}
+        <InsightCard
+          className="lg:col-span-3"
+          eyebrow="Brand performance"
           title="Brand-wise completion"
-          subtitle="This week, stacked by status"
+          subtitle="Audits completed vs. pending, ranked by volume this week"
           icon={<ClipboardList className="size-4" />}
+          legend={[
+            { label: "Completed", color: "oklch(0.55 0.16 255)" },
+            { label: "Pending", color: "oklch(0.82 0.14 75)" },
+          ]}
+          headline={
+            filteredBrands.length === 0
+              ? "—"
+              : `${Math.round(
+                  (filteredBrands.reduce((a, b) => a + b.completed, 0) /
+                    Math.max(filteredBrands.reduce((a, b) => a + b.due, 0), 1)) * 100,
+                )}%`
+          }
+          headlineLabel="Avg. completion"
         >
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={filteredBrands} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.25} horizontal={false} />
-              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} stroke="oklch(0.50 0.03 255)" />
-              <YAxis type="category" dataKey="brand_name" width={120} tick={{ fontSize: 12 }} stroke="oklch(0.50 0.03 255)" />
-              <Tooltip
-                contentStyle={{
-                  borderRadius: 10,
-                  border: "1px solid oklch(0.91 0.01 250)",
-                  fontSize: 12,
-                  boxShadow: "0 8px 24px -10px oklch(0.22 0.06 255 / 0.25)",
-                }}
-                cursor={{ fill: "oklch(0.96 0.01 250 / 0.6)" }}
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart
+              data={[...filteredBrands].sort((a, b) => b.due - a.due)}
+              layout="vertical"
+              margin={{ left: 8, right: 28, top: 4, bottom: 0 }}
+              barCategoryGap={14}
+            >
+              <defs>
+                <linearGradient id="brandBarCompleted" x1="0" x2="1" y1="0" y2="0">
+                  <stop offset="0%" stopColor="oklch(0.62 0.17 255)" />
+                  <stop offset="100%" stopColor="oklch(0.55 0.16 255)" />
+                </linearGradient>
+                <linearGradient id="brandBarPending" x1="0" x2="1" y1="0" y2="0">
+                  <stop offset="0%" stopColor="oklch(0.86 0.13 75)" />
+                  <stop offset="100%" stopColor="oklch(0.78 0.15 75)" />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="oklch(0.92 0.01 250)" strokeDasharray="2 4" horizontal={false} />
+              <XAxis
+                type="number"
+                allowDecimals={false}
+                tick={{ fontSize: 11, fill: "oklch(0.55 0.02 255)" }}
+                axisLine={false}
+                tickLine={false}
               />
-              <Bar dataKey="completed" stackId="a" fill="oklch(0.55 0.16 255)" name="Completed" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="pending" stackId="a" fill="oklch(0.82 0.14 75)" name="Pending" radius={[0, 6, 6, 0]} />
+              <YAxis
+                type="category"
+                dataKey="brand_name"
+                width={120}
+                tick={{ fontSize: 12, fill: "oklch(0.32 0.02 255)", fontWeight: 500 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip content={<ChartTooltip valueSuffix="" />} cursor={{ fill: "oklch(0.96 0.01 250 / 0.5)" }} />
+              <Bar dataKey="completed" stackId="a" fill="url(#brandBarCompleted)" name="Completed" radius={[6, 0, 0, 6]} />
+              <Bar dataKey="pending" stackId="a" fill="url(#brandBarPending)" name="Pending" radius={[0, 6, 6, 0]}>
+                <LabelList
+                  dataKey="due"
+                  position="right"
+                  formatter={(v: number) => `${v}`}
+                  style={{ fontSize: 11, fill: "oklch(0.45 0.02 255)", fontWeight: 600 }}
+                />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
-        </Panel>
+        </InsightCard>
 
-        <Panel
+        {/* Week-on-week trend */}
+        <InsightCard
+          className="lg:col-span-2"
+          eyebrow="Trend"
           title="Week-on-week completion"
-          subtitle="Rolling completion rate"
+          subtitle="Rolling completion rate over recent weeks"
           icon={<TrendingUp className="size-4" />}
+          headline={`${data.trend.at(-1)?.pct ?? 0}%`}
+          headlineLabel="Latest week"
+          headlineDelta={(() => {
+            const last = data.trend.at(-1)?.pct ?? 0;
+            const prev = data.trend.at(-2)?.pct ?? last;
+            return last - prev;
+          })()}
         >
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={data.trend} margin={{ left: 4, right: 12, top: 8, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={data.trend} margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
               <defs>
-                <linearGradient id="trendLine" x1="0" x2="1" y1="0" y2="0">
+                <linearGradient id="trendStroke" x1="0" x2="1" y1="0" y2="0">
                   <stop offset="0%" stopColor="oklch(0.55 0.16 255)" />
                   <stop offset="100%" stopColor="oklch(0.72 0.13 195)" />
                 </linearGradient>
+                <linearGradient id="trendFill" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="oklch(0.62 0.16 230)" stopOpacity={0.32} />
+                  <stop offset="100%" stopColor="oklch(0.72 0.13 195)" stopOpacity={0} />
+                </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
-              <XAxis dataKey="week" tickFormatter={(w) => w.slice(5)} tick={{ fontSize: 11 }} stroke="oklch(0.50 0.03 255)" />
-              <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11 }} stroke="oklch(0.50 0.03 255)" />
-              <Tooltip
-                formatter={(v: number) => [`${v}%`, "Completion"]}
-                contentStyle={{
-                  borderRadius: 10,
-                  border: "1px solid oklch(0.91 0.01 250)",
-                  fontSize: 12,
-                  boxShadow: "0 8px 24px -10px oklch(0.22 0.06 255 / 0.25)",
-                }}
+              <CartesianGrid stroke="oklch(0.92 0.01 250)" strokeDasharray="2 4" vertical={false} />
+              <XAxis
+                dataKey="week"
+                tickFormatter={(w) => w.slice(5)}
+                tick={{ fontSize: 11, fill: "oklch(0.55 0.02 255)" }}
+                axisLine={false}
+                tickLine={false}
+                dy={4}
               />
-              <Line
+              <YAxis
+                domain={[0, 100]}
+                tickFormatter={(v) => `${v}%`}
+                tick={{ fontSize: 11, fill: "oklch(0.55 0.02 255)" }}
+                axisLine={false}
+                tickLine={false}
+                width={36}
+              />
+              <Tooltip content={<ChartTooltip valueSuffix="%" />} cursor={{ stroke: "oklch(0.55 0.16 255)", strokeWidth: 1, strokeDasharray: "3 3" }} />
+              <Area
                 type="monotone"
                 dataKey="pct"
-                stroke="url(#trendLine)"
-                strokeWidth={3}
-                dot={{ r: 4, fill: "oklch(0.55 0.16 255)", strokeWidth: 2, stroke: "white" }}
-                activeDot={{ r: 6 }}
+                stroke="url(#trendStroke)"
+                strokeWidth={2.5}
+                fill="url(#trendFill)"
+                dot={{ r: 3, fill: "white", strokeWidth: 2, stroke: "oklch(0.55 0.16 255)" }}
+                activeDot={{ r: 6, fill: "oklch(0.55 0.16 255)", strokeWidth: 3, stroke: "white" }}
               />
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
-        </Panel>
+        </InsightCard>
       </section>
+
 
       {/* Store breakdown */}
       <Panel
