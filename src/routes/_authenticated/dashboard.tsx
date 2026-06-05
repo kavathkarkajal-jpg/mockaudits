@@ -133,21 +133,45 @@ function DashboardPage() {
 
       {/* Re-audit banner */}
       {(summary?.totalFlagged ?? 0) > 0 && (
-        <section className="relative overflow-hidden rounded-2xl border border-destructive/40 bg-gradient-to-r from-destructive/10 via-destructive/5 to-transparent p-5">
-          <div className="flex items-start gap-4">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-destructive/15 text-destructive">
-              <AlertTriangle className="size-6" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-destructive tabular-nums">{summary?.totalFlagged}</span>
-                <span className="font-semibold text-foreground">re-audit{(summary?.totalFlagged ?? 0) === 1 ? "" : "s"} required this week</span>
+        <section
+          role="alert"
+          className="relative overflow-hidden rounded-2xl border-2 border-destructive/50 bg-gradient-to-br from-destructive/15 via-destructive/8 to-background shadow-[0_8px_30px_-12px_oklch(0.55_0.22_25/0.35)]"
+        >
+          <div aria-hidden className="absolute inset-y-0 left-0 w-1.5 bg-destructive" />
+          <div
+            aria-hidden
+            className="absolute -right-16 -top-16 size-56 rounded-full bg-destructive/15 blur-3xl"
+          />
+          <div className="relative flex flex-col gap-5 p-5 md:flex-row md:items-center md:justify-between md:p-6">
+            <div className="flex items-start gap-4">
+              <div className="relative flex size-14 shrink-0 items-center justify-center rounded-xl bg-destructive text-destructive-foreground shadow-lg shadow-destructive/30">
+                <ShieldAlert className="size-7" />
+                <span aria-hidden className="absolute inset-0 rounded-xl ring-2 ring-destructive/40 animate-pulse" />
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                These employees scored below the brand threshold. Head to <span className="font-medium text-foreground">Conduct</span> to start their re-audit.
-              </p>
+              <div className="space-y-1.5">
+                <div className="inline-flex items-center gap-2 rounded-full bg-destructive/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-destructive">
+                  <AlertTriangle className="size-3" /> Action required
+                </div>
+                <h2 className="text-lg font-bold tracking-tight text-foreground">
+                  <span className="text-destructive tabular-nums">{summary?.totalFlagged}</span>{" "}
+                  employee{(summary?.totalFlagged ?? 0) === 1 ? "" : "s"} flagged for re-audit
+                </h2>
+                <p className="text-sm text-muted-foreground max-w-xl">
+                  Scores fell below the brand threshold. Re-audit before week-end to keep store compliance on track.
+                </p>
+              </div>
             </div>
-            <ArrowRight className="hidden sm:block size-5 text-destructive/60 self-center" />
+            <Button
+              asChild
+              size="lg"
+              variant="destructive"
+              className="shadow-md shadow-destructive/30 hover:shadow-lg hover:shadow-destructive/40 transition-shadow shrink-0 self-stretch md:self-auto"
+            >
+              <Link to="/conduct">
+                Start re-audits
+                <ArrowRight className="size-4" />
+              </Link>
+            </Button>
           </div>
         </section>
       )}
