@@ -9,7 +9,7 @@ import {
 } from "recharts";
 import {
   Activity, AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, ClipboardList,
-  Clock, Filter, Percent, TrendingUp,
+  Clock, Filter, TrendingUp,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
