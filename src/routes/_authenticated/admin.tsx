@@ -364,6 +364,8 @@ function RowsTable({ rows, columns, onDelete, onEdit, onBulkAction }: { rows: an
   const selectable = Boolean(onBulkAction);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [running, setRunning] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 25;
 
   const visibleIds = rows.map((r) => r.id);
   const visibleKey = visibleIds.join("|");
@@ -371,7 +373,12 @@ function RowsTable({ rows, columns, onDelete, onEdit, onBulkAction }: { rows: an
   if (lastKeyRef.current !== visibleKey) {
     lastKeyRef.current = visibleKey;
     if (selected.size > 0) setSelected(new Set());
+    if (page !== 1) setPage(1);
   }
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const selectedVisible = visibleIds.filter((id) => selected.has(id));
   const allSelected = visibleIds.length > 0 && selectedVisible.length === visibleIds.length;
@@ -431,7 +438,7 @@ function RowsTable({ rows, columns, onDelete, onEdit, onBulkAction }: { rows: an
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {pagedRows.map((r) => (
               <tr key={r.id} className="border-b last:border-0">
                 {selectable && (
                   <td className="py-2 px-3">
@@ -453,6 +460,15 @@ function RowsTable({ rows, columns, onDelete, onEdit, onBulkAction }: { rows: an
           </tbody>
         </table>
       </div>
+      {rows.length > pageSize && (
+        <div className="flex items-center justify-between px-1">
+          <div className="text-xs text-muted-foreground tabular-nums">Page {safePage} of {totalPages}</div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1}>Previous</Button>
+            <Button size="sm" variant="outline" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}>Next</Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
