@@ -108,11 +108,18 @@ function BrandsTab({ brands }: { brands: Array<{ id: string; name: string; prima
 function StoresTab({ brands, stores }: { brands: any[]; stores: any[] }) {
   const inv = useInvalidate();
   const save = useServerFn(upsertStore); const del = useServerFn(deleteStore);
+  const [editId, setEditId] = useState<string | null>(null);
   const [brand_id, setBrand] = useState(""); const [code, setCode] = useState(""); const [n, setN] = useState(""); const [region, setRegion] = useState("Default");
   const [search, setSearch] = useState("");
   const [filterBrand, setFilterBrand] = useState<string>("all");
-  const m = useMutation({ mutationFn: () => save({ data: { brand_id, store_code: code, store_name: n, region } }), onSuccess: () => { toast.success("Store saved"); setCode(""); setN(""); inv(); }, onError: (e: Error) => toast.error(e.message) });
+  const resetForm = () => { setEditId(null); setBrand(""); setCode(""); setN(""); setRegion("Default"); };
+  const m = useMutation({
+    mutationFn: () => save({ data: { ...(editId ? { id: editId } : {}), brand_id, store_code: code, store_name: n, region } }),
+    onSuccess: () => { toast.success(editId ? "Store updated" : "Store saved"); resetForm(); inv(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
   const d = useMutation({ mutationFn: (id: string) => del({ data: { id } }), onSuccess: () => { toast.success("Deleted"); inv(); }, onError: (e: Error) => toast.error(e.message) });
+  const startEdit = (r: any) => { setEditId(r.id); setBrand(r.brand_id ?? ""); setCode(r.store_code ?? ""); setN(r.store_name ?? ""); setRegion(r.region ?? "Default"); };
 
   const q = search.trim().toLowerCase();
   const filtered = stores.filter((s) => {
@@ -133,7 +140,8 @@ function StoresTab({ brands, stores }: { brands: any[]; stores: any[] }) {
         <div><Label>Store code</Label><Input value={code} onChange={(e) => setCode(e.target.value)} required/></div>
         <div><Label>Store name</Label><Input value={n} onChange={(e) => setN(e.target.value)} required/></div>
         <div><Label>Region</Label><Input value={region} onChange={(e) => setRegion(e.target.value)} required/></div>
-        <Button type="submit" disabled={!brand_id || m.isPending}>Add store</Button>
+        <Button type="submit" disabled={!brand_id || m.isPending}>{editId ? "Update store" : "Add store"}</Button>
+        {editId && <Button type="button" variant="ghost" onClick={resetForm}>Cancel edit</Button>}
       </form>
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3">
@@ -158,6 +166,7 @@ function StoresTab({ brands, stores }: { brands: any[]; stores: any[] }) {
 
       <RowsTable rows={filtered.map((s) => ({ ...s, brand: brands.find((b) => b.id === s.brand_id)?.name }))}
         columns={[{ k: "brand", h: "Brand" }, { k: "store_code", h: "Code" }, { k: "store_name", h: "Name" }, { k: "region", h: "Region" }]}
+        onEdit={startEdit}
         onDelete={(r) => d.mutate(r.id)} />
     </div>
   );
