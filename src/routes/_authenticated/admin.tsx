@@ -162,6 +162,14 @@ function StoresTab({ brands, stores }: { brands: any[]; stores: any[] }) {
             <X className="size-4"/> Clear
           </Button>
         )}
+        <Button type="button" variant="outline" size="sm" onClick={() => {
+          const header = ["Brand", "Store code", "Store name", "Region"];
+          const data = filtered.map((s) => [
+            brands.find((b) => b.id === s.brand_id)?.name ?? "",
+            s.store_code ?? "", s.store_name ?? "", s.region ?? "",
+          ]);
+          downloadCSV(`stores-export-${new Date().toISOString().slice(0,10)}.csv`, [header, ...data]);
+        }} disabled={filtered.length === 0}><Download className="size-4"/> Export CSV</Button>
       </div>
 
       <RowsTable rows={filtered.map((s) => ({ ...s, brand: brands.find((b) => b.id === s.brand_id)?.name }))}
