@@ -16,8 +16,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Download, Trash2, Upload } from "lucide-react";
+import { Download, Search, Trash2, Upload, X } from "lucide-react";
 
 
 export const Route = createFileRoute("/_authenticated/admin")({
