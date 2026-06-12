@@ -333,27 +333,102 @@ function UsersTab({ brands, stores, profiles, roles }: { brands: any[]; stores: 
   );
 }
 
-function RowsTable({ rows, columns, onDelete, onEdit }: { rows: any[]; columns: { k: string; h: string }[]; onDelete?: (r: any) => void; onEdit?: (r: any) => void }) {
+type BulkAction = { label: string; run: (ids: string[]) => Promise<void> | void };
+
+function RowsTable({ rows, columns, onDelete, onEdit, onBulkAction }: { rows: any[]; columns: { k: string; h: string }[]; onDelete?: (r: any) => void; onEdit?: (r: any) => void; onBulkAction?: BulkAction }) {
   const hasActions = Boolean(onDelete || onEdit);
+  const selectable = Boolean(onBulkAction);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [running, setRunning] = useState(false);
+
+  const visibleIds = rows.map((r) => r.id);
+  const visibleKey = visibleIds.join("|");
+  const lastKeyRef = useRef(visibleKey);
+  if (lastKeyRef.current !== visibleKey) {
+    lastKeyRef.current = visibleKey;
+    if (selected.size > 0) setSelected(new Set());
+  }
+
+  const selectedVisible = visibleIds.filter((id) => selected.has(id));
+  const allSelected = visibleIds.length > 0 && selectedVisible.length === visibleIds.length;
+  const someSelected = selectedVisible.length > 0 && !allSelected;
+
+  const toggleAll = (checked: boolean) => {
+    setSelected(checked ? new Set(visibleIds) : new Set());
+  };
+  const toggleOne = (id: string, checked: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id); else next.delete(id);
+      return next;
+    });
+  };
+  const runBulk = async () => {
+    if (!onBulkAction || selectedVisible.length === 0) return;
+    setRunning(true);
+    try {
+      await onBulkAction.run(selectedVisible);
+      setSelected(new Set());
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const totalCols = columns.length + (hasActions ? 1 : 0) + (selectable ? 1 : 0);
+
   return (
-    <div className="rounded-xl border bg-card overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead className="text-left text-xs uppercase text-muted-foreground border-b">
-          <tr>{columns.map((c) => <th key={c.k} className="py-2 px-3">{c.h}</th>)}{hasActions && <th/>}</tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} className="border-b last:border-0">
-              {columns.map((c) => <td key={c.k} className="py-2 px-3">{String(r[c.k] ?? "—")}</td>)}
-              {hasActions && <td className="px-3 text-right whitespace-nowrap">
-                {onEdit && <Button size="sm" variant="ghost" onClick={() => onEdit(r)} aria-label="Edit"><Pencil className="size-4"/></Button>}
-                {onDelete && <Button size="sm" variant="ghost" onClick={() => onDelete(r)} aria-label="Delete"><Trash2 className="size-4"/></Button>}
-              </td>}
+    <div className="space-y-2">
+      {selectable && selectedVisible.length > 0 && (
+        <div className="flex items-center justify-between rounded-xl border bg-accent/40 px-3 py-2">
+          <div className="text-sm font-medium">{selectedVisible.length} selected</div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} disabled={running}>Clear</Button>
+            <Button size="sm" variant="destructive" onClick={runBulk} disabled={running}>
+              {running ? "Working…" : onBulkAction!.label}
+            </Button>
+          </div>
+        </div>
+      )}
+      <div className="rounded-xl border bg-card overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-left text-xs uppercase text-muted-foreground border-b">
+            <tr>
+              {selectable && (
+                <th className="py-2 px-3 w-8">
+                  <Checkbox
+                    checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                    onCheckedChange={(v) => toggleAll(v === true)}
+                    aria-label="Select all"
+                  />
+                </th>
+              )}
+              {columns.map((c) => <th key={c.k} className="py-2 px-3">{c.h}</th>)}
+              {hasActions && <th/>}
             </tr>
-          ))}
-          {rows.length === 0 && <tr><td colSpan={columns.length + (hasActions ? 1 : 0)} className="py-6 text-center text-muted-foreground">No records yet.</td></tr>}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} className="border-b last:border-0">
+                {selectable && (
+                  <td className="py-2 px-3">
+                    <Checkbox
+                      checked={selected.has(r.id)}
+                      onCheckedChange={(v) => toggleOne(r.id, v === true)}
+                      aria-label="Select row"
+                    />
+                  </td>
+                )}
+                {columns.map((c) => <td key={c.k} className="py-2 px-3">{String(r[c.k] ?? "—")}</td>)}
+                {hasActions && <td className="px-3 text-right whitespace-nowrap">
+                  {onEdit && <Button size="sm" variant="ghost" onClick={() => onEdit(r)} aria-label="Edit"><Pencil className="size-4"/></Button>}
+                  {onDelete && <Button size="sm" variant="ghost" onClick={() => onDelete(r)} aria-label="Delete"><Trash2 className="size-4"/></Button>}
+                </td>}
+              </tr>
+            ))}
+            {rows.length === 0 && <tr><td colSpan={totalCols} className="py-6 text-center text-muted-foreground">No records yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
