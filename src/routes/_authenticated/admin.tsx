@@ -109,8 +109,19 @@ function StoresTab({ brands, stores }: { brands: any[]; stores: any[] }) {
   const inv = useInvalidate();
   const save = useServerFn(upsertStore); const del = useServerFn(deleteStore);
   const [brand_id, setBrand] = useState(""); const [code, setCode] = useState(""); const [n, setN] = useState(""); const [region, setRegion] = useState("Default");
+  const [search, setSearch] = useState("");
+  const [filterBrand, setFilterBrand] = useState<string>("all");
   const m = useMutation({ mutationFn: () => save({ data: { brand_id, store_code: code, store_name: n, region } }), onSuccess: () => { toast.success("Store saved"); setCode(""); setN(""); inv(); }, onError: (e: Error) => toast.error(e.message) });
   const d = useMutation({ mutationFn: (id: string) => del({ data: { id } }), onSuccess: () => { toast.success("Deleted"); inv(); }, onError: (e: Error) => toast.error(e.message) });
+
+  const q = search.trim().toLowerCase();
+  const filtered = stores.filter((s) => {
+    if (filterBrand !== "all" && s.brand_id !== filterBrand) return false;
+    if (q && !(`${s.store_name ?? ""} ${s.store_code ?? ""}`.toLowerCase().includes(q))) return false;
+    return true;
+  });
+  const hasFilters = q !== "" || filterBrand !== "all";
+
   return (
     <div className="space-y-4 mt-4">
       <form onSubmit={(e) => { e.preventDefault(); m.mutate(); }} className="flex flex-wrap gap-2 items-end rounded-xl border bg-card p-4">
@@ -124,7 +135,28 @@ function StoresTab({ brands, stores }: { brands: any[]; stores: any[] }) {
         <div><Label>Region</Label><Input value={region} onChange={(e) => setRegion(e.target.value)} required/></div>
         <Button type="submit" disabled={!brand_id || m.isPending}>Add store</Button>
       </form>
-      <RowsTable rows={stores.map((s) => ({ ...s, brand: brands.find((b) => b.id === s.brand_id)?.name }))}
+
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"/>
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by store name or code" className="pl-8"/>
+        </div>
+        <Select value={filterBrand} onValueChange={setFilterBrand}>
+          <SelectTrigger className="w-48"><SelectValue/></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All brands</SelectItem>
+            {brands.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <div className="text-xs text-muted-foreground tabular-nums">{filtered.length} of {stores.length} stores</div>
+        {hasFilters && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => { setSearch(""); setFilterBrand("all"); }}>
+            <X className="size-4"/> Clear
+          </Button>
+        )}
+      </div>
+
+      <RowsTable rows={filtered.map((s) => ({ ...s, brand: brands.find((b) => b.id === s.brand_id)?.name }))}
         columns={[{ k: "brand", h: "Brand" }, { k: "store_code", h: "Code" }, { k: "store_name", h: "Name" }, { k: "region", h: "Region" }]}
         onDelete={(r) => d.mutate(r.id)} />
     </div>
@@ -135,8 +167,21 @@ function EmployeesTab({ stores, employees }: { stores: any[]; employees: any[] }
   const inv = useInvalidate();
   const save = useServerFn(upsertEmployee); const del = useServerFn(deleteEmployee);
   const [store_id, setStore] = useState(""); const [n, setN] = useState(""); const [code, setCode] = useState("");
+  const [search, setSearch] = useState("");
+  const [filterStore, setFilterStore] = useState<string>("all");
+  const [activeOnly, setActiveOnly] = useState(true);
   const m = useMutation({ mutationFn: () => save({ data: { store_id, name: n, employee_code: code, active: true } }), onSuccess: () => { toast.success("Employee saved"); setN(""); setCode(""); inv(); }, onError: (e: Error) => toast.error(e.message) });
   const d = useMutation({ mutationFn: (id: string) => del({ data: { id } }), onSuccess: () => { toast.success("Deactivated"); inv(); }, onError: (e: Error) => toast.error(e.message) });
+
+  const q = search.trim().toLowerCase();
+  const filtered = employees.filter((e) => {
+    if (activeOnly && !e.active) return false;
+    if (filterStore !== "all" && e.store_id !== filterStore) return false;
+    if (q && !(`${e.name ?? ""} ${e.employee_code ?? ""}`.toLowerCase().includes(q))) return false;
+    return true;
+  });
+  const hasFilters = q !== "" || filterStore !== "all" || !activeOnly;
+
   return (
     <div className="space-y-4 mt-4">
       <form onSubmit={(e) => { e.preventDefault(); m.mutate(); }} className="flex flex-wrap gap-2 items-end rounded-xl border bg-card p-4">
@@ -149,7 +194,32 @@ function EmployeesTab({ stores, employees }: { stores: any[]; employees: any[] }
         <div><Label>Employee code</Label><Input value={code} onChange={(e) => setCode(e.target.value)} required/></div>
         <Button type="submit" disabled={!store_id || m.isPending}>Add employee</Button>
       </form>
-      <RowsTable rows={employees.map((e) => ({ ...e, store: stores.find((s) => s.id === e.store_id)?.store_name }))}
+
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"/>
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or employee code" className="pl-8"/>
+        </div>
+        <Select value={filterStore} onValueChange={setFilterStore}>
+          <SelectTrigger className="w-56"><SelectValue/></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All stores</SelectItem>
+            {stores.map((s) => <SelectItem key={s.id} value={s.id}>{s.store_name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <label className="flex items-center gap-2 text-sm cursor-pointer select-none px-2">
+          <Checkbox checked={activeOnly} onCheckedChange={(v) => setActiveOnly(v === true)}/>
+          Active only
+        </label>
+        <div className="text-xs text-muted-foreground tabular-nums">{filtered.length} of {employees.length} employees</div>
+        {hasFilters && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => { setSearch(""); setFilterStore("all"); setActiveOnly(true); }}>
+            <X className="size-4"/> Clear
+          </Button>
+        )}
+      </div>
+
+      <RowsTable rows={filtered.map((e) => ({ ...e, store: stores.find((s) => s.id === e.store_id)?.store_name }))}
         columns={[{ k: "name", h: "Name" }, { k: "employee_code", h: "Code" }, { k: "store", h: "Store" }, { k: "active", h: "Active" }]}
         onDelete={(r) => d.mutate(r.id)} />
     </div>
