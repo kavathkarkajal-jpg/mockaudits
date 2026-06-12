@@ -254,7 +254,15 @@ function EmployeesTab({ stores, employees }: { stores: any[]; employees: any[] }
       <RowsTable rows={filtered.map((e) => ({ ...e, store: stores.find((s) => s.id === e.store_id)?.store_name }))}
         columns={[{ k: "name", h: "Name" }, { k: "employee_code", h: "Code" }, { k: "store", h: "Store" }, { k: "active", h: "Active" }]}
         onEdit={startEdit}
-        onDelete={(r) => d.mutate(r.id)} />
+        onDelete={(r) => d.mutate(r.id)}
+        onBulkAction={{ label: "Deactivate selected", run: async (ids) => {
+          const results = await Promise.allSettled(ids.map((id) => del({ data: { id } })));
+          const ok = results.filter((r) => r.status === "fulfilled").length;
+          const failed = results.length - ok;
+          if (ok) toast.success(`Deactivated ${ok} employee${ok === 1 ? "" : "s"}`);
+          if (failed) toast.error(`${failed} could not be deactivated`);
+          inv();
+        }}} />
     </div>
   );
 }
