@@ -253,27 +253,52 @@ function EmployeesTab({ stores, employees }: { stores: any[]; employees: any[] }
 
 function UsersTab({ brands, stores, profiles, roles }: { brands: any[]; stores: any[]; profiles: any[]; roles: any[] }) {
   const inv = useInvalidate();
-  const create = useServerFn(createUser); const del = useServerFn(deleteUser);
+  const create = useServerFn(createUser); const update = useServerFn(updateUserProfile); const del = useServerFn(deleteUser);
+  const [editId, setEditId] = useState<string | null>(null);
   const [storeCode, setStoreCode] = useState(""); const [password, setPassword] = useState(""); const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<string>("store_manager");
   const [brand_id, setBrand] = useState<string>(""); const [store_id, setStoreId] = useState<string>(""); const [region, setRegion] = useState("");
 
+  const resetForm = () => {
+    setEditId(null); setStoreCode(""); setPassword(""); setFullName("");
+    setRole("store_manager"); setBrand(""); setStoreId(""); setRegion("");
+  };
+
   const m = useMutation({
-    mutationFn: () => create({ data: {
-      store_code: storeCode, password, full_name: fullName, role: role as any,
-      brand_id: brand_id || null, store_id: store_id || null, region: region || null,
-    } }),
-    onSuccess: () => { toast.success("User created"); setStoreCode(""); setPassword(""); setFullName(""); inv(); },
+    mutationFn: () => {
+      if (editId) {
+        return update({ data: {
+          id: editId, full_name: fullName, role: role as any,
+          brand_id: brand_id || null, store_id: store_id || null, region: region || null,
+        } });
+      }
+      return create({ data: {
+        store_code: storeCode, password, full_name: fullName, role: role as any,
+        brand_id: brand_id || null, store_id: store_id || null, region: region || null,
+      } });
+    },
+    onSuccess: () => { toast.success(editId ? "User updated" : "User created"); resetForm(); inv(); },
     onError: (e: Error) => toast.error(e.message),
   });
   const d = useMutation({ mutationFn: (id: string) => del({ data: { id } }), onSuccess: () => { toast.success("Deleted"); inv(); }, onError: (e: Error) => toast.error(e.message) });
 
   const roleByUser = new Map(roles.map((r) => [r.user_id, r.role]));
+  const startEdit = (r: any) => {
+    setEditId(r.id);
+    setStoreCode(r.store_code ?? "");
+    setPassword("");
+    setFullName(r.full_name ?? "");
+    setRole((r.role as string) ?? "store_manager");
+    setBrand(r.brand_id ?? "");
+    setStoreId(r.store_id ?? "");
+    setRegion(r.region ?? "");
+  };
+
   return (
     <div className="space-y-4 mt-4">
       <form onSubmit={(e) => { e.preventDefault(); m.mutate(); }} className="grid grid-cols-1 md:grid-cols-2 gap-3 rounded-xl border bg-card p-4">
-        <div><Label>Store code (login)</Label><Input value={storeCode} onChange={(e) => setStoreCode(e.target.value)} required/></div>
-        <div><Label>Password</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6}/></div>
+        <div><Label>Store code (login)</Label><Input value={storeCode} onChange={(e) => setStoreCode(e.target.value)} required={!editId} disabled={!!editId}/></div>
+        <div><Label>Password</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required={!editId} disabled={!!editId} minLength={6} placeholder={editId ? "(unchanged)" : ""}/></div>
         <div><Label>Full name</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} required/></div>
         <div><Label>Role</Label>
           <Select value={role} onValueChange={setRole}><SelectTrigger><SelectValue/></SelectTrigger>
@@ -294,11 +319,15 @@ function UsersTab({ brands, stores, profiles, roles }: { brands: any[]; stores: 
           </Select>
         </div>
         <div><Label>Region (for regional managers)</Label><Input value={region} onChange={(e) => setRegion(e.target.value)}/></div>
-        <div className="md:col-span-2"><Button type="submit" disabled={m.isPending}>Create user</Button></div>
+        <div className="md:col-span-2 flex gap-2">
+          <Button type="submit" disabled={m.isPending}>{editId ? "Update user" : "Create user"}</Button>
+          {editId && <Button type="button" variant="ghost" onClick={resetForm}>Cancel edit</Button>}
+        </div>
       </form>
 
       <RowsTable rows={profiles.map((p) => ({ ...p, role: roleByUser.get(p.id) }))}
         columns={[{ k: "store_code", h: "Store code" }, { k: "full_name", h: "Name" }, { k: "role", h: "Role" }, { k: "brand_id", h: "Brand" }]}
+        onEdit={startEdit}
         onDelete={(r) => d.mutate(r.id)} />
     </div>
   );
