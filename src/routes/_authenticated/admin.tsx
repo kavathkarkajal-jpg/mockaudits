@@ -279,23 +279,25 @@ function UsersTab({ brands, stores, profiles, roles }: { brands: any[]; stores: 
   );
 }
 
-function RowsTable({ rows, columns, onDelete }: { rows: any[]; columns: { k: string; h: string }[]; onDelete?: (r: any) => void }) {
+function RowsTable({ rows, columns, onDelete, onEdit }: { rows: any[]; columns: { k: string; h: string }[]; onDelete?: (r: any) => void; onEdit?: (r: any) => void }) {
+  const hasActions = Boolean(onDelete || onEdit);
   return (
     <div className="rounded-xl border bg-card overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="text-left text-xs uppercase text-muted-foreground border-b">
-          <tr>{columns.map((c) => <th key={c.k} className="py-2 px-3">{c.h}</th>)}{onDelete && <th/>}</tr>
+          <tr>{columns.map((c) => <th key={c.k} className="py-2 px-3">{c.h}</th>)}{hasActions && <th/>}</tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} className="border-b last:border-0">
               {columns.map((c) => <td key={c.k} className="py-2 px-3">{String(r[c.k] ?? "—")}</td>)}
-              {onDelete && <td className="px-3 text-right">
-                <Button size="sm" variant="ghost" onClick={() => onDelete(r)}><Trash2 className="size-4"/></Button>
+              {hasActions && <td className="px-3 text-right whitespace-nowrap">
+                {onEdit && <Button size="sm" variant="ghost" onClick={() => onEdit(r)} aria-label="Edit"><Pencil className="size-4"/></Button>}
+                {onDelete && <Button size="sm" variant="ghost" onClick={() => onDelete(r)} aria-label="Delete"><Trash2 className="size-4"/></Button>}
               </td>}
             </tr>
           ))}
-          {rows.length === 0 && <tr><td colSpan={columns.length + 1} className="py-6 text-center text-muted-foreground">No records yet.</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={columns.length + (hasActions ? 1 : 0)} className="py-6 text-center text-muted-foreground">No records yet.</td></tr>}
         </tbody>
       </table>
     </div>
