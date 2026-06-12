@@ -6,7 +6,7 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import {
   adminListAll, upsertBrand, deleteBrand, upsertStore, deleteStore,
-  upsertEmployee, deleteEmployee, createUser, deleteUser, getMyProfile,
+  upsertEmployee, deleteEmployee, createUser, updateUserProfile, deleteUser, getMyProfile,
   previewImport, commitImport,
 } from "@/lib/api/mock-audit.functions";
 import { QuestionsTab } from "@/components/admin/QuestionsTab";
