@@ -175,12 +175,20 @@ function StoresTab({ brands, stores }: { brands: any[]; stores: any[] }) {
 function EmployeesTab({ stores, employees }: { stores: any[]; employees: any[] }) {
   const inv = useInvalidate();
   const save = useServerFn(upsertEmployee); const del = useServerFn(deleteEmployee);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editActive, setEditActive] = useState(true);
   const [store_id, setStore] = useState(""); const [n, setN] = useState(""); const [code, setCode] = useState("");
   const [search, setSearch] = useState("");
   const [filterStore, setFilterStore] = useState<string>("all");
   const [activeOnly, setActiveOnly] = useState(true);
-  const m = useMutation({ mutationFn: () => save({ data: { store_id, name: n, employee_code: code, active: true } }), onSuccess: () => { toast.success("Employee saved"); setN(""); setCode(""); inv(); }, onError: (e: Error) => toast.error(e.message) });
+  const resetForm = () => { setEditId(null); setEditActive(true); setStore(""); setN(""); setCode(""); };
+  const m = useMutation({
+    mutationFn: () => save({ data: { ...(editId ? { id: editId } : {}), store_id, name: n, employee_code: code, active: editId ? editActive : true } }),
+    onSuccess: () => { toast.success(editId ? "Employee updated" : "Employee saved"); resetForm(); inv(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
   const d = useMutation({ mutationFn: (id: string) => del({ data: { id } }), onSuccess: () => { toast.success("Deactivated"); inv(); }, onError: (e: Error) => toast.error(e.message) });
+  const startEdit = (r: any) => { setEditId(r.id); setEditActive(r.active ?? true); setStore(r.store_id ?? ""); setN(r.name ?? ""); setCode(r.employee_code ?? ""); };
 
   const q = search.trim().toLowerCase();
   const filtered = employees.filter((e) => {
@@ -201,7 +209,14 @@ function EmployeesTab({ stores, employees }: { stores: any[]; employees: any[] }
         </div>
         <div><Label>Name</Label><Input value={n} onChange={(e) => setN(e.target.value)} required/></div>
         <div><Label>Employee code</Label><Input value={code} onChange={(e) => setCode(e.target.value)} required/></div>
-        <Button type="submit" disabled={!store_id || m.isPending}>Add employee</Button>
+        {editId && (
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none pb-2">
+            <Checkbox checked={editActive} onCheckedChange={(v) => setEditActive(v === true)}/>
+            Active
+          </label>
+        )}
+        <Button type="submit" disabled={!store_id || m.isPending}>{editId ? "Update employee" : "Add employee"}</Button>
+        {editId && <Button type="button" variant="ghost" onClick={resetForm}>Cancel edit</Button>}
       </form>
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3">
@@ -230,6 +245,7 @@ function EmployeesTab({ stores, employees }: { stores: any[]; employees: any[] }
 
       <RowsTable rows={filtered.map((e) => ({ ...e, store: stores.find((s) => s.id === e.store_id)?.store_name }))}
         columns={[{ k: "name", h: "Name" }, { k: "employee_code", h: "Code" }, { k: "store", h: "Store" }, { k: "active", h: "Active" }]}
+        onEdit={startEdit}
         onDelete={(r) => d.mutate(r.id)} />
     </div>
   );
