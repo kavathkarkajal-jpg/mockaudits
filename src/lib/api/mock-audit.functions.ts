@@ -468,6 +468,39 @@ export const resetUserPassword = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const updateUserProfile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        full_name: z.string().min(1).max(120),
+        role: RoleEnum,
+        brand_id: z.string().uuid().nullable().optional(),
+        store_id: z.string().uuid().nullable().optional(),
+        region: z.string().max(80).nullable().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { error: pErr } = await supabaseAdmin
+      .from("profiles")
+      .update({
+        full_name: data.full_name,
+        brand_id: data.brand_id ?? null,
+        store_id: data.store_id ?? null,
+        region: data.region ?? null,
+      })
+      .eq("id", data.id);
+    if (pErr) throw new Error(pErr.message);
+    const { error: rErr } = await supabaseAdmin
+      .from("user_roles")
+      .upsert({ user_id: data.id, role: data.role }, { onConflict: "user_id" });
+    if (rErr) throw new Error(rErr.message);
+    return { ok: true };
+  });
+
 // ------- Questions: list for a brand (any authenticated user) -------
 export const listQuestionsForBrand = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
