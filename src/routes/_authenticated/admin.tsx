@@ -167,7 +167,15 @@ function StoresTab({ brands, stores }: { brands: any[]; stores: any[] }) {
       <RowsTable rows={filtered.map((s) => ({ ...s, brand: brands.find((b) => b.id === s.brand_id)?.name }))}
         columns={[{ k: "brand", h: "Brand" }, { k: "store_code", h: "Code" }, { k: "store_name", h: "Name" }, { k: "region", h: "Region" }]}
         onEdit={startEdit}
-        onDelete={(r) => d.mutate(r.id)} />
+        onDelete={(r) => d.mutate(r.id)}
+        onBulkAction={{ label: "Delete selected", run: async (ids) => {
+          const results = await Promise.allSettled(ids.map((id) => del({ data: { id } })));
+          const ok = results.filter((r) => r.status === "fulfilled").length;
+          const failed = results.length - ok;
+          if (ok) toast.success(`Deleted ${ok} store${ok === 1 ? "" : "s"}`);
+          if (failed) toast.error(`${failed} could not be deleted`);
+          inv();
+        }}} />
     </div>
   );
 }
