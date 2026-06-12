@@ -6,7 +6,7 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import {
   adminListAll, upsertBrand, deleteBrand, upsertStore, deleteStore,
-  upsertEmployee, deleteEmployee, createUser, deleteUser, getMyProfile,
+  upsertEmployee, deleteEmployee, createUser, updateUserProfile, deleteUser, getMyProfile,
   previewImport, commitImport,
 } from "@/lib/api/mock-audit.functions";
 import { QuestionsTab } from "@/components/admin/QuestionsTab";
@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Download, Search, Trash2, Upload, X } from "lucide-react";
+import { Download, Pencil, Search, Trash2, Upload, X } from "lucide-react";
 
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -108,11 +108,18 @@ function BrandsTab({ brands }: { brands: Array<{ id: string; name: string; prima
 function StoresTab({ brands, stores }: { brands: any[]; stores: any[] }) {
   const inv = useInvalidate();
   const save = useServerFn(upsertStore); const del = useServerFn(deleteStore);
+  const [editId, setEditId] = useState<string | null>(null);
   const [brand_id, setBrand] = useState(""); const [code, setCode] = useState(""); const [n, setN] = useState(""); const [region, setRegion] = useState("Default");
   const [search, setSearch] = useState("");
   const [filterBrand, setFilterBrand] = useState<string>("all");
-  const m = useMutation({ mutationFn: () => save({ data: { brand_id, store_code: code, store_name: n, region } }), onSuccess: () => { toast.success("Store saved"); setCode(""); setN(""); inv(); }, onError: (e: Error) => toast.error(e.message) });
+  const resetForm = () => { setEditId(null); setBrand(""); setCode(""); setN(""); setRegion("Default"); };
+  const m = useMutation({
+    mutationFn: () => save({ data: { ...(editId ? { id: editId } : {}), brand_id, store_code: code, store_name: n, region } }),
+    onSuccess: () => { toast.success(editId ? "Store updated" : "Store saved"); resetForm(); inv(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
   const d = useMutation({ mutationFn: (id: string) => del({ data: { id } }), onSuccess: () => { toast.success("Deleted"); inv(); }, onError: (e: Error) => toast.error(e.message) });
+  const startEdit = (r: any) => { setEditId(r.id); setBrand(r.brand_id ?? ""); setCode(r.store_code ?? ""); setN(r.store_name ?? ""); setRegion(r.region ?? "Default"); };
 
   const q = search.trim().toLowerCase();
   const filtered = stores.filter((s) => {
@@ -133,7 +140,8 @@ function StoresTab({ brands, stores }: { brands: any[]; stores: any[] }) {
         <div><Label>Store code</Label><Input value={code} onChange={(e) => setCode(e.target.value)} required/></div>
         <div><Label>Store name</Label><Input value={n} onChange={(e) => setN(e.target.value)} required/></div>
         <div><Label>Region</Label><Input value={region} onChange={(e) => setRegion(e.target.value)} required/></div>
-        <Button type="submit" disabled={!brand_id || m.isPending}>Add store</Button>
+        <Button type="submit" disabled={!brand_id || m.isPending}>{editId ? "Update store" : "Add store"}</Button>
+        {editId && <Button type="button" variant="ghost" onClick={resetForm}>Cancel edit</Button>}
       </form>
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3">
@@ -158,6 +166,7 @@ function StoresTab({ brands, stores }: { brands: any[]; stores: any[] }) {
 
       <RowsTable rows={filtered.map((s) => ({ ...s, brand: brands.find((b) => b.id === s.brand_id)?.name }))}
         columns={[{ k: "brand", h: "Brand" }, { k: "store_code", h: "Code" }, { k: "store_name", h: "Name" }, { k: "region", h: "Region" }]}
+        onEdit={startEdit}
         onDelete={(r) => d.mutate(r.id)} />
     </div>
   );
@@ -166,12 +175,20 @@ function StoresTab({ brands, stores }: { brands: any[]; stores: any[] }) {
 function EmployeesTab({ stores, employees }: { stores: any[]; employees: any[] }) {
   const inv = useInvalidate();
   const save = useServerFn(upsertEmployee); const del = useServerFn(deleteEmployee);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editActive, setEditActive] = useState(true);
   const [store_id, setStore] = useState(""); const [n, setN] = useState(""); const [code, setCode] = useState("");
   const [search, setSearch] = useState("");
   const [filterStore, setFilterStore] = useState<string>("all");
   const [activeOnly, setActiveOnly] = useState(true);
-  const m = useMutation({ mutationFn: () => save({ data: { store_id, name: n, employee_code: code, active: true } }), onSuccess: () => { toast.success("Employee saved"); setN(""); setCode(""); inv(); }, onError: (e: Error) => toast.error(e.message) });
+  const resetForm = () => { setEditId(null); setEditActive(true); setStore(""); setN(""); setCode(""); };
+  const m = useMutation({
+    mutationFn: () => save({ data: { ...(editId ? { id: editId } : {}), store_id, name: n, employee_code: code, active: editId ? editActive : true } }),
+    onSuccess: () => { toast.success(editId ? "Employee updated" : "Employee saved"); resetForm(); inv(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
   const d = useMutation({ mutationFn: (id: string) => del({ data: { id } }), onSuccess: () => { toast.success("Deactivated"); inv(); }, onError: (e: Error) => toast.error(e.message) });
+  const startEdit = (r: any) => { setEditId(r.id); setEditActive(r.active ?? true); setStore(r.store_id ?? ""); setN(r.name ?? ""); setCode(r.employee_code ?? ""); };
 
   const q = search.trim().toLowerCase();
   const filtered = employees.filter((e) => {
@@ -192,7 +209,14 @@ function EmployeesTab({ stores, employees }: { stores: any[]; employees: any[] }
         </div>
         <div><Label>Name</Label><Input value={n} onChange={(e) => setN(e.target.value)} required/></div>
         <div><Label>Employee code</Label><Input value={code} onChange={(e) => setCode(e.target.value)} required/></div>
-        <Button type="submit" disabled={!store_id || m.isPending}>Add employee</Button>
+        {editId && (
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none pb-2">
+            <Checkbox checked={editActive} onCheckedChange={(v) => setEditActive(v === true)}/>
+            Active
+          </label>
+        )}
+        <Button type="submit" disabled={!store_id || m.isPending}>{editId ? "Update employee" : "Add employee"}</Button>
+        {editId && <Button type="button" variant="ghost" onClick={resetForm}>Cancel edit</Button>}
       </form>
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3">
@@ -221,6 +245,7 @@ function EmployeesTab({ stores, employees }: { stores: any[]; employees: any[] }
 
       <RowsTable rows={filtered.map((e) => ({ ...e, store: stores.find((s) => s.id === e.store_id)?.store_name }))}
         columns={[{ k: "name", h: "Name" }, { k: "employee_code", h: "Code" }, { k: "store", h: "Store" }, { k: "active", h: "Active" }]}
+        onEdit={startEdit}
         onDelete={(r) => d.mutate(r.id)} />
     </div>
   );
@@ -228,27 +253,52 @@ function EmployeesTab({ stores, employees }: { stores: any[]; employees: any[] }
 
 function UsersTab({ brands, stores, profiles, roles }: { brands: any[]; stores: any[]; profiles: any[]; roles: any[] }) {
   const inv = useInvalidate();
-  const create = useServerFn(createUser); const del = useServerFn(deleteUser);
+  const create = useServerFn(createUser); const update = useServerFn(updateUserProfile); const del = useServerFn(deleteUser);
+  const [editId, setEditId] = useState<string | null>(null);
   const [storeCode, setStoreCode] = useState(""); const [password, setPassword] = useState(""); const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<string>("store_manager");
   const [brand_id, setBrand] = useState<string>(""); const [store_id, setStoreId] = useState<string>(""); const [region, setRegion] = useState("");
 
+  const resetForm = () => {
+    setEditId(null); setStoreCode(""); setPassword(""); setFullName("");
+    setRole("store_manager"); setBrand(""); setStoreId(""); setRegion("");
+  };
+
   const m = useMutation({
-    mutationFn: () => create({ data: {
-      store_code: storeCode, password, full_name: fullName, role: role as any,
-      brand_id: brand_id || null, store_id: store_id || null, region: region || null,
-    } }),
-    onSuccess: () => { toast.success("User created"); setStoreCode(""); setPassword(""); setFullName(""); inv(); },
+    mutationFn: () => {
+      if (editId) {
+        return update({ data: {
+          id: editId, full_name: fullName, role: role as any,
+          brand_id: brand_id || null, store_id: store_id || null, region: region || null,
+        } });
+      }
+      return create({ data: {
+        store_code: storeCode, password, full_name: fullName, role: role as any,
+        brand_id: brand_id || null, store_id: store_id || null, region: region || null,
+      } });
+    },
+    onSuccess: () => { toast.success(editId ? "User updated" : "User created"); resetForm(); inv(); },
     onError: (e: Error) => toast.error(e.message),
   });
   const d = useMutation({ mutationFn: (id: string) => del({ data: { id } }), onSuccess: () => { toast.success("Deleted"); inv(); }, onError: (e: Error) => toast.error(e.message) });
 
   const roleByUser = new Map(roles.map((r) => [r.user_id, r.role]));
+  const startEdit = (r: any) => {
+    setEditId(r.id);
+    setStoreCode(r.store_code ?? "");
+    setPassword("");
+    setFullName(r.full_name ?? "");
+    setRole((r.role as string) ?? "store_manager");
+    setBrand(r.brand_id ?? "");
+    setStoreId(r.store_id ?? "");
+    setRegion(r.region ?? "");
+  };
+
   return (
     <div className="space-y-4 mt-4">
       <form onSubmit={(e) => { e.preventDefault(); m.mutate(); }} className="grid grid-cols-1 md:grid-cols-2 gap-3 rounded-xl border bg-card p-4">
-        <div><Label>Store code (login)</Label><Input value={storeCode} onChange={(e) => setStoreCode(e.target.value)} required/></div>
-        <div><Label>Password</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6}/></div>
+        <div><Label>Store code (login)</Label><Input value={storeCode} onChange={(e) => setStoreCode(e.target.value)} required={!editId} disabled={!!editId}/></div>
+        <div><Label>Password</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required={!editId} disabled={!!editId} minLength={6} placeholder={editId ? "(unchanged)" : ""}/></div>
         <div><Label>Full name</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} required/></div>
         <div><Label>Role</Label>
           <Select value={role} onValueChange={setRole}><SelectTrigger><SelectValue/></SelectTrigger>
@@ -269,33 +319,39 @@ function UsersTab({ brands, stores, profiles, roles }: { brands: any[]; stores: 
           </Select>
         </div>
         <div><Label>Region (for regional managers)</Label><Input value={region} onChange={(e) => setRegion(e.target.value)}/></div>
-        <div className="md:col-span-2"><Button type="submit" disabled={m.isPending}>Create user</Button></div>
+        <div className="md:col-span-2 flex gap-2">
+          <Button type="submit" disabled={m.isPending}>{editId ? "Update user" : "Create user"}</Button>
+          {editId && <Button type="button" variant="ghost" onClick={resetForm}>Cancel edit</Button>}
+        </div>
       </form>
 
       <RowsTable rows={profiles.map((p) => ({ ...p, role: roleByUser.get(p.id) }))}
         columns={[{ k: "store_code", h: "Store code" }, { k: "full_name", h: "Name" }, { k: "role", h: "Role" }, { k: "brand_id", h: "Brand" }]}
+        onEdit={startEdit}
         onDelete={(r) => d.mutate(r.id)} />
     </div>
   );
 }
 
-function RowsTable({ rows, columns, onDelete }: { rows: any[]; columns: { k: string; h: string }[]; onDelete?: (r: any) => void }) {
+function RowsTable({ rows, columns, onDelete, onEdit }: { rows: any[]; columns: { k: string; h: string }[]; onDelete?: (r: any) => void; onEdit?: (r: any) => void }) {
+  const hasActions = Boolean(onDelete || onEdit);
   return (
     <div className="rounded-xl border bg-card overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="text-left text-xs uppercase text-muted-foreground border-b">
-          <tr>{columns.map((c) => <th key={c.k} className="py-2 px-3">{c.h}</th>)}{onDelete && <th/>}</tr>
+          <tr>{columns.map((c) => <th key={c.k} className="py-2 px-3">{c.h}</th>)}{hasActions && <th/>}</tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} className="border-b last:border-0">
               {columns.map((c) => <td key={c.k} className="py-2 px-3">{String(r[c.k] ?? "—")}</td>)}
-              {onDelete && <td className="px-3 text-right">
-                <Button size="sm" variant="ghost" onClick={() => onDelete(r)}><Trash2 className="size-4"/></Button>
+              {hasActions && <td className="px-3 text-right whitespace-nowrap">
+                {onEdit && <Button size="sm" variant="ghost" onClick={() => onEdit(r)} aria-label="Edit"><Pencil className="size-4"/></Button>}
+                {onDelete && <Button size="sm" variant="ghost" onClick={() => onDelete(r)} aria-label="Delete"><Trash2 className="size-4"/></Button>}
               </td>}
             </tr>
           ))}
-          {rows.length === 0 && <tr><td colSpan={columns.length + 1} className="py-6 text-center text-muted-foreground">No records yet.</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={columns.length + (hasActions ? 1 : 0)} className="py-6 text-center text-muted-foreground">No records yet.</td></tr>}
         </tbody>
       </table>
     </div>
