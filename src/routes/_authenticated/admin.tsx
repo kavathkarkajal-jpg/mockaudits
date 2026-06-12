@@ -358,6 +358,19 @@ function UsersTab({ brands, stores, profiles, roles }: { brands: any[]; stores: 
         </div>
       </form>
 
+      <div className="flex flex-wrap items-center justify-end gap-2 rounded-xl border bg-card p-3">
+        <div className="text-xs text-muted-foreground tabular-nums mr-auto">{profiles.length} user{profiles.length === 1 ? "" : "s"}</div>
+        <Button type="button" variant="outline" size="sm" onClick={() => {
+          const header = ["Store code", "Name", "Role", "Brand"];
+          const data = profiles.map((p) => [
+            p.store_code ?? "", p.full_name ?? "",
+            (roleByUser.get(p.id) as string) ?? "",
+            brands.find((b) => b.id === p.brand_id)?.name ?? "",
+          ]);
+          downloadCSV(`users-export-${new Date().toISOString().slice(0,10)}.csv`, [header, ...data]);
+        }} disabled={profiles.length === 0}><Download className="size-4"/> Export CSV</Button>
+      </div>
+
       <RowsTable rows={profiles.map((p) => ({ ...p, role: roleByUser.get(p.id) }))}
         columns={[{ k: "store_code", h: "Store code" }, { k: "full_name", h: "Name" }, { k: "role", h: "Role" }, { k: "brand_id", h: "Brand" }]}
         onEdit={startEdit}
