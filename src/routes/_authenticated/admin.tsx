@@ -364,6 +364,8 @@ function RowsTable({ rows, columns, onDelete, onEdit, onBulkAction }: { rows: an
   const selectable = Boolean(onBulkAction);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [running, setRunning] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 25;
 
   const visibleIds = rows.map((r) => r.id);
   const visibleKey = visibleIds.join("|");
@@ -371,7 +373,12 @@ function RowsTable({ rows, columns, onDelete, onEdit, onBulkAction }: { rows: an
   if (lastKeyRef.current !== visibleKey) {
     lastKeyRef.current = visibleKey;
     if (selected.size > 0) setSelected(new Set());
+    if (page !== 1) setPage(1);
   }
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const selectedVisible = visibleIds.filter((id) => selected.has(id));
   const allSelected = visibleIds.length > 0 && selectedVisible.length === visibleIds.length;
