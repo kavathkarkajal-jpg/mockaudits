@@ -438,7 +438,7 @@ function RowsTable({ rows, columns, onDelete, onEdit, onBulkAction }: { rows: an
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {pagedRows.map((r) => (
               <tr key={r.id} className="border-b last:border-0">
                 {selectable && (
                   <td className="py-2 px-3">
@@ -460,6 +460,15 @@ function RowsTable({ rows, columns, onDelete, onEdit, onBulkAction }: { rows: an
           </tbody>
         </table>
       </div>
+      {rows.length > pageSize && (
+        <div className="flex items-center justify-between px-1">
+          <div className="text-xs text-muted-foreground tabular-nums">Page {safePage} of {totalPages}</div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1}>Previous</Button>
+            <Button size="sm" variant="outline" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}>Next</Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
