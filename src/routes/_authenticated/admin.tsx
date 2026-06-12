@@ -257,6 +257,15 @@ function EmployeesTab({ stores, employees }: { stores: any[]; employees: any[] }
             <X className="size-4"/> Clear
           </Button>
         )}
+        <Button type="button" variant="outline" size="sm" onClick={() => {
+          const header = ["Name", "Employee code", "Store", "Active"];
+          const data = filtered.map((e) => [
+            e.name ?? "", e.employee_code ?? "",
+            stores.find((s) => s.id === e.store_id)?.store_name ?? "",
+            e.active ? "Yes" : "No",
+          ]);
+          downloadCSV(`employees-export-${new Date().toISOString().slice(0,10)}.csv`, [header, ...data]);
+        }} disabled={filtered.length === 0}><Download className="size-4"/> Export CSV</Button>
       </div>
 
       <RowsTable rows={filtered.map((e) => ({ ...e, store: stores.find((s) => s.id === e.store_id)?.store_name }))}
