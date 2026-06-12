@@ -494,9 +494,14 @@ export const updateUserProfile = createServerFn({ method: "POST" })
       })
       .eq("id", data.id);
     if (pErr) throw new Error(pErr.message);
+    const { error: rDelErr } = await supabaseAdmin
+      .from("user_roles")
+      .delete()
+      .eq("user_id", data.id);
+    if (rDelErr) throw new Error(rDelErr.message);
     const { error: rErr } = await supabaseAdmin
       .from("user_roles")
-      .upsert({ user_id: data.id, role: data.role }, { onConflict: "user_id" });
+      .insert({ user_id: data.id, role: data.role });
     if (rErr) throw new Error(rErr.message);
     return { ok: true };
   });
