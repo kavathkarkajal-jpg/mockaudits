@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   adminListQuestions, upsertQuestion, deleteQuestion, reorderQuestions,
+  listSections, upsertSection, deleteSection,
 } from "@/lib/api/mock-audit.functions";
 import {
   type QuestionType, QUESTION_TYPES, QUESTION_TYPE_LABELS,
