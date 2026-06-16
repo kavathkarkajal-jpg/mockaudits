@@ -515,7 +515,7 @@ export const listQuestionsForBrand = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { data: rows, error } = await context.supabase
       .from("audit_questions")
-      .select("id, brand_id, question_text, question_type, display_order, options, required, max_score")
+      .select("id, brand_id, section_id, question_text, question_type, display_order, options, required, max_score")
       .eq("brand_id", data.brand_id)
       .order("display_order", { ascending: true });
     if (error) throw new Error(error.message);
