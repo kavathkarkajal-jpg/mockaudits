@@ -556,6 +556,7 @@ export const upsertQuestion = createServerFn({ method: "POST" })
       .object({
         id: z.string().uuid().optional(),
         brand_id: z.string().uuid(),
+        section_id: z.string().uuid().nullable().optional(),
         question_text: z.string().min(1).max(1000),
         question_type: QuestionTypeEnum.default("yes_no"),
         options: z.any().optional(),
@@ -572,6 +573,7 @@ export const upsertQuestion = createServerFn({ method: "POST" })
       options: data.options ?? [],
       required: data.required ?? false,
       max_score: data.max_score ?? 0,
+      section_id: data.section_id ?? null,
     };
     if (data.id) {
       const { error } = await context.supabase
