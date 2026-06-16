@@ -25,6 +25,7 @@ export type Database = {
           question_text: string
           question_type: string
           required: boolean
+          section_id: string | null
         }
         Insert: {
           brand_id?: string | null
@@ -36,6 +37,7 @@ export type Database = {
           question_text: string
           question_type?: string
           required?: boolean
+          section_id?: string | null
         }
         Update: {
           brand_id?: string | null
@@ -47,10 +49,50 @@ export type Database = {
           question_text?: string
           question_type?: string
           required?: boolean
+          section_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "audit_questions_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_questions_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "audit_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_sections: {
+        Row: {
+          brand_id: string
+          created_at: string
+          display_order: number
+          id: string
+          name: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          name: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_sections_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   adminListQuestions, upsertQuestion, deleteQuestion, reorderQuestions,
+  listSections, upsertSection, deleteSection,
 } from "@/lib/api/mock-audit.functions";
 import {
   type QuestionType, QUESTION_TYPES, QUESTION_TYPE_LABELS,
@@ -23,6 +24,7 @@ import { ArrowDown, ArrowUp, Pencil, Plus, Star, Trash2, X } from "lucide-react"
 type AdminQuestion = {
   id: string;
   brand_id: string;
+  section_id: string | null;
   question_text: string;
   question_type: QuestionType;
   display_order: number;
@@ -30,6 +32,10 @@ type AdminQuestion = {
   required: boolean;
   max_score: number;
 };
+
+type Section = { id: string; brand_id: string; name: string; display_order: number };
+
+const UNSECTIONED = "__none__";
 
 const DEFAULT_OPTIONS: Record<QuestionType, unknown> = {
   yes_no: [],
@@ -63,6 +69,9 @@ export function QuestionsTab({ brands }: { brands: Array<{ id: string; name: str
   const save = useServerFn(upsertQuestion);
   const del = useServerFn(deleteQuestion);
   const reorder = useServerFn(reorderQuestions);
+  const fetchSections = useServerFn(listSections);
+  const saveSection = useServerFn(upsertSection);
+  const delSection = useServerFn(deleteSection);
 
   const [brandId, setBrandId] = useState<string>("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -70,11 +79,26 @@ export function QuestionsTab({ brands }: { brands: Array<{ id: string; name: str
   const [type, setType] = useState<QuestionType>("yes_no");
   const [options, setOptions] = useState<unknown>(DEFAULT_OPTIONS.yes_no);
   const [required, setRequired] = useState(false);
+  const [sectionId, setSectionId] = useState<string>(UNSECTIONED);
+  const [newSectionName, setNewSectionName] = useState("");
 
   const { data: all } = useQuery({
     queryKey: ["admin-questions"],
     queryFn: () => fetchAll() as Promise<AdminQuestion[]>,
   });
+
+  const { data: allSections } = useQuery({
+    queryKey: ["admin-sections"],
+    queryFn: () => fetchSections() as Promise<Section[]>,
+  });
+
+  const sections = useMemo(
+    () =>
+      (allSections ?? [])
+        .filter((s) => s.brand_id === brandId)
+        .sort((a, b) => a.display_order - b.display_order),
+    [allSections, brandId],
+  );
 
   const list = useMemo(
     () =>
@@ -84,9 +108,23 @@ export function QuestionsTab({ brands }: { brands: Array<{ id: string; name: str
     [all, brandId],
   );
 
+  const grouped = useMemo(() => {
+    const groups: Array<{ key: string; name: string; items: AdminQuestion[] }> = [];
+    for (const s of sections) groups.push({ key: s.id, name: s.name, items: [] });
+    groups.push({ key: UNSECTIONED, name: "Unsectioned", items: [] });
+    const byKey = new Map(groups.map((g) => [g.key, g] as const));
+    for (const q of list) {
+      const k = q.section_id ?? UNSECTIONED;
+      (byKey.get(k) ?? byKey.get(UNSECTIONED)!).items.push(q);
+    }
+    return groups.filter((g) => g.items.length > 0 || g.key !== UNSECTIONED);
+  }, [sections, list]);
+
   const invBrand = () => {
     qc.invalidateQueries({ queryKey: ["admin-questions"] });
+    qc.invalidateQueries({ queryKey: ["admin-sections"] });
     qc.invalidateQueries({ queryKey: ["questions", brandId] });
+    qc.invalidateQueries({ queryKey: ["sections", brandId] });
   };
 
   const resetForm = () => {
@@ -95,6 +133,7 @@ export function QuestionsTab({ brands }: { brands: Array<{ id: string; name: str
     setType("yes_no");
     setOptions(DEFAULT_OPTIONS.yes_no);
     setRequired(false);
+    setSectionId(UNSECTIONED);
   };
 
   const startEdit = (q: AdminQuestion) => {
@@ -103,9 +142,9 @@ export function QuestionsTab({ brands }: { brands: Array<{ id: string; name: str
     setType(q.question_type);
     setOptions(q.options ?? DEFAULT_OPTIONS[q.question_type]);
     setRequired(!!q.required);
+    setSectionId(q.section_id ?? UNSECTIONED);
   };
 
-  // When type changes during composition, reset options to that type's default
   const changeType = (t: QuestionType) => {
     setType(t);
     setOptions(DEFAULT_OPTIONS[t]);
@@ -119,6 +158,7 @@ export function QuestionsTab({ brands }: { brands: Array<{ id: string; name: str
         data: {
           id: editingId ?? undefined,
           brand_id: brandId,
+          section_id: sectionId === UNSECTIONED ? null : sectionId,
           question_text: text,
           question_type: type,
           options,
@@ -155,6 +195,18 @@ export function QuestionsTab({ brands }: { brands: Array<{ id: string; name: str
     moveMut.mutate(ids);
   };
 
+  const addSectionMut = useMutation({
+    mutationFn: (name: string) => saveSection({ data: { brand_id: brandId, name } }),
+    onSuccess: () => { toast.success("Section added"); setNewSectionName(""); invBrand(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const delSectionMut = useMutation({
+    mutationFn: (id: string) => delSection({ data: { id } }),
+    onSuccess: () => { toast.success("Section deleted"); invBrand(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   useEffect(() => { resetForm(); }, [brandId]);
 
   return (
@@ -170,8 +222,43 @@ export function QuestionsTab({ brands }: { brands: Array<{ id: string; name: str
       </div>
 
       {brandId && (
+        <div className="rounded-xl border bg-card p-4 space-y-3">
+          <div className="text-sm font-medium">Sections</div>
+          <div className="flex flex-wrap gap-2">
+            {sections.length === 0 && (
+              <div className="text-xs text-muted-foreground">No sections yet — questions appear under "Unsectioned".</div>
+            )}
+            {sections.map((s) => (
+              <div key={s.id} className="flex items-center gap-1 rounded-md border bg-muted/30 pl-2 pr-1 py-0.5 text-sm">
+                <span>{s.name}</span>
+                <Button type="button" size="icon" variant="ghost" className="size-6"
+                  onClick={() => { if (confirm(`Delete section "${s.name}"? Questions inside will become Unsectioned.`)) delSectionMut.mutate(s.id); }}>
+                  <X className="size-3"/>
+                </Button>
+              </div>
+            ))}
+          </div>
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => { e.preventDefault(); if (newSectionName.trim()) addSectionMut.mutate(newSectionName.trim()); }}
+          >
+            <Input
+              value={newSectionName}
+              onChange={(e) => setNewSectionName(e.target.value)}
+              placeholder="New section name (e.g. Operations)"
+              maxLength={120}
+              className="max-w-xs"
+            />
+            <Button type="submit" size="sm" disabled={addSectionMut.isPending || !newSectionName.trim()}>
+              <Plus className="size-4 mr-1"/>Add section
+            </Button>
+          </form>
+        </div>
+      )}
+
+      {brandId && (
         <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
-          {/* Question list */}
+          {/* Question list grouped by section */}
           <div className="rounded-xl border bg-card overflow-hidden">
             <div className="p-3 border-b flex items-center justify-between">
               <div className="text-sm font-medium">Questions</div>
@@ -180,25 +267,37 @@ export function QuestionsTab({ brands }: { brands: Array<{ id: string; name: str
             {list.length === 0 ? (
               <div className="py-10 text-center text-sm text-muted-foreground">No questions yet.</div>
             ) : (
-              <ol className="divide-y">
-                {list.map((q, idx) => (
-                  <li key={q.id} className={`flex items-start gap-2 p-3 ${editingId === q.id ? "bg-muted/50" : ""}`}>
-                    <div className="text-xs text-muted-foreground w-6 pt-2">{idx + 1}.</div>
-                    <div className="flex-1 pt-1">
-                      <div className="text-sm">{q.question_text}{q.required && <span className="text-destructive ml-1">*</span>}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {QUESTION_TYPE_LABELS[q.question_type]} · max {Number(q.max_score)}
-                      </div>
+              <div className="divide-y">
+                {grouped.map((g) => (
+                  <div key={g.key}>
+                    <div className="px-3 py-2 bg-muted/30 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {g.name}
                     </div>
-                    <div className="flex items-center">
-                      <Button size="icon" variant="ghost" disabled={idx === 0 || moveMut.isPending} onClick={() => move(idx, -1)}><ArrowUp className="size-4"/></Button>
-                      <Button size="icon" variant="ghost" disabled={idx === list.length - 1 || moveMut.isPending} onClick={() => move(idx, 1)}><ArrowDown className="size-4"/></Button>
-                      <Button size="icon" variant="ghost" onClick={() => startEdit(q)}><Pencil className="size-4"/></Button>
-                      <Button size="icon" variant="ghost" onClick={() => { if (confirm("Delete this question?")) d.mutate(q.id); }}><Trash2 className="size-4"/></Button>
-                    </div>
-                  </li>
+                    <ol className="divide-y">
+                      {g.items.map((q) => {
+                        const idx = list.indexOf(q);
+                        return (
+                          <li key={q.id} className={`flex items-start gap-2 p-3 ${editingId === q.id ? "bg-muted/50" : ""}`}>
+                            <div className="text-xs text-muted-foreground w-6 pt-2">{idx + 1}.</div>
+                            <div className="flex-1 pt-1">
+                              <div className="text-sm">{q.question_text}{q.required && <span className="text-destructive ml-1">*</span>}</div>
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                {QUESTION_TYPE_LABELS[q.question_type]} · max {Number(q.max_score)}
+                              </div>
+                            </div>
+                            <div className="flex items-center">
+                              <Button size="icon" variant="ghost" disabled={idx === 0 || moveMut.isPending} onClick={() => move(idx, -1)}><ArrowUp className="size-4"/></Button>
+                              <Button size="icon" variant="ghost" disabled={idx === list.length - 1 || moveMut.isPending} onClick={() => move(idx, 1)}><ArrowDown className="size-4"/></Button>
+                              <Button size="icon" variant="ghost" onClick={() => startEdit(q)}><Pencil className="size-4"/></Button>
+                              <Button size="icon" variant="ghost" onClick={() => { if (confirm("Delete this question?")) d.mutate(q.id); }}><Trash2 className="size-4"/></Button>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </div>
                 ))}
-              </ol>
+              </div>
             )}
           </div>
 
@@ -226,6 +325,17 @@ export function QuestionsTab({ brands }: { brands: Array<{ id: string; name: str
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div>
+              <Label>Section</Label>
+              <Select value={sectionId} onValueChange={setSectionId}>
+                <SelectTrigger className="max-w-xs"><SelectValue/></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={UNSECTIONED}>Unsectioned</SelectItem>
+                  {sections.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center gap-2">
