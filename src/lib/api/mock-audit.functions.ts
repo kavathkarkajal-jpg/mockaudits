@@ -390,6 +390,7 @@ const RoleEnum = z.enum([
   "store_manager",
   "regional_manager",
   "trainer",
+  "operations_head",
   "business_head",
   "admin",
 ]);
