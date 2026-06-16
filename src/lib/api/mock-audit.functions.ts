@@ -993,6 +993,84 @@ function lastNMondays(n: number): string[] {
   return out;
 }
 
+export const listStores = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase } = context;
+    const monday = mondayISO();
+    const { data: profile } = await supabase.from("profiles").select("brand_id, store_id, region").eq("id", context.userId).maybeSingle();
+    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", context.userId);
+    const role = roles?.[0]?.role ?? null;
+    let q = supabase.from("stores").select("id, store_code, store_name, region, brand_id, brands(id, name, primary_color)").order("store_name");
+    if (role === "admin") { /* no filter */ }
+    else if (["trainer","operations_head","business_head","regional_manager"].includes(role ?? "") && profile?.brand_id) { q = q.eq("brand_id", profile.brand_id); if (role === "regional_manager" && profile?.region) q = q.eq("region", profile.region); }
+    else if (role === "store_manager" && profile?.store_id) { q = q.eq("id", profile.store_id); }
+    const { data: stores, error } = await q;
+    if (error) throw new Error(error.message);
+    const storeIds = (stores ?? []).map((s) => s.id);
+    let completionMap: Record<string, { total: number; completed: number }> = {};
+    if (storeIds.length) {
+      const { data: emps } = await supabase.from("employees").select("id, store_id").in("store_id", storeIds).eq("active", true);
+      const empIds = (emps ?? []).map((e) => e.id);
+      let completedIds = new Set<string>();
+      if (empIds.length) { const { data: sessions } = await supabase.from("audit_sessions").select("employee_id").eq("week_start_date", monday).in("employee_id", empIds); completedIds = new Set((sessions ?? []).map((s) => s.employee_id)); }
+      for (const emp of emps ?? []) { if (!completionMap[emp.store_id]) completionMap[emp.store_id] = { total: 0, completed: 0 }; completionMap[emp.store_id]!.total++; if (completedIds.has(emp.id)) completionMap[emp.store_id]!.completed++; }
+    }
+    return (stores ?? []).map((s) => ({ id: s.id, code: s.store_code, name: s.store_name, region: s.region, brand: s.brands ? { id: (s.brands as any).id, name: (s.brands as any).name, color: (s.brands as any).primary_color } : null, completion: completionMap[s.id] ?? { total: 0, completed: 0 } }));
+  });
+
+export const listEmployeesByStore = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ store_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const monday = mondayISO();
+    const { data: employees, error } = await supabase.from("employees").select("id, name, employee_code, store_id, stores(id, store_code, store_name, brand_id, region, brands(id, name, primary_color))").eq("store_id", data.store_id).eq("active", true).order("name");
+    if (error) throw new Error(error.message);
+    const empIds = (employees ?? []).map((e) => e.id);
+    let completedSet = new Set<string>(); let reauditSet = new Set<string>();
+    if (empIds.length) { const { data: sessions } = await supabase.from("audit_sessions").select("employee_id, needs_reaudit").eq("week_start_date", monday).in("employee_id", empIds); completedSet = new Set((sessions ?? []).map((s) => s.employee_id)); reauditSet = new Set((sessions ?? []).filter((s) => s.needs_reaudit).map((s) => s.employee_id)); }
+    return (employees ?? []).map((e) => ({ id: e.id, name: e.name, employee_code: e.employee_code, store: e.stores ? { id: (e.stores as any).id, code: (e.stores as any).store_code, name: (e.stores as any).store_name, region: (e.stores as any).region, brand: (e.stores as any).brands ? { id: (e.stores as any).brands.id, name: (e.stores as any).brands.name, color: (e.stores as any).brands.primary_color } : null } : null, completedThisWeek: completedSet.has(e.id), needsReaudit: reauditSet.has(e.id) }));
+  });
+
+export const getStore = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ store_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: store, error } = await context.supabase.from("stores").select("id, store_code, store_name, region, brand_id, brands(id, name, primary_color)").eq("id", data.store_id).maybeSingle();
+    if (error) throw new Error(error.message);
+    return store ? { id: store.id, code: store.store_code, name: store.store_name, region: store.region, brand: store.brands ? { id: (store.brands as any).id, name: (store.brands as any).name, color: (store.brands as any).primary_color } : null } : null;
+  });
+
+export const trainerUpsertEmployee = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ id: z.string().uuid().optional(), store_id: z.string().uuid(), name: z.string().min(1).max(120), employee_code: z.string().min(1).max(40), active: z.boolean().default(true) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+    const role = roles?.[0]?.role;
+    if (role !== "admin" && role !== "trainer") throw new Error("Forbidden");
+    if (role === "trainer") { const { data: profile } = await supabase.from("profiles").select("brand_id").eq("id", userId).maybeSingle(); const { data: store } = await supabase.from("stores").select("brand_id").eq("id", data.store_id).maybeSingle(); if (!profile?.brand_id || profile.brand_id !== store?.brand_id) throw new Error("Forbidden: store not in your brand"); }
+    const { error } = await supabase.from("employees").upsert(data);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const trainerDeleteEmployee = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+    const role = roles?.[0]?.role;
+    if (role !== "admin" && role !== "trainer") throw new Error("Forbidden");
+    if (role === "trainer") { const { data: profile } = await supabase.from("profiles").select("brand_id").eq("id", userId).maybeSingle(); const { data: emp } = await supabase.from("employees").select("store_id, stores(brand_id)").eq("id", data.id).maybeSingle(); const storeBrand = (emp?.stores as any)?.brand_id; if (!profile?.brand_id || profile.brand_id !== storeBrand) throw new Error("Forbidden"); }
+    const { error } = await supabase.from("employees").update({ active: false }).eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+
 async function assertAdmin(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
