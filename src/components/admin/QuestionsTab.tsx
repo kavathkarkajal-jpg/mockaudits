@@ -24,6 +24,7 @@ import { ArrowDown, ArrowUp, Pencil, Plus, Star, Trash2, X } from "lucide-react"
 type AdminQuestion = {
   id: string;
   brand_id: string;
+  section_id: string | null;
   question_text: string;
   question_type: QuestionType;
   display_order: number;
@@ -31,6 +32,10 @@ type AdminQuestion = {
   required: boolean;
   max_score: number;
 };
+
+type Section = { id: string; brand_id: string; name: string; display_order: number };
+
+const UNSECTIONED = "__none__";
 
 const DEFAULT_OPTIONS: Record<QuestionType, unknown> = {
   yes_no: [],
