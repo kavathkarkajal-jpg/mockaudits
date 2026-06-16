@@ -1073,6 +1073,69 @@ export const trainerDeleteEmployee = createServerFn({ method: "POST" })
   });
 
 
+
+// ------- Sections: list (any authenticated user) -------
+export const listSections = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("audit_sections")
+      .select("id, brand_id, name, display_order")
+      .order("brand_id")
+      .order("display_order", { ascending: true });
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const upsertSection = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        id: z.string().uuid().optional(),
+        brand_id: z.string().uuid(),
+        name: z.string().min(1).max(120),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    if (data.id) {
+      const { error } = await context.supabase
+        .from("audit_sections")
+        .update({ name: data.name })
+        .eq("id", data.id);
+      if (error) throw new Error(error.message);
+    } else {
+      const { data: maxRow } = await context.supabase
+        .from("audit_sections")
+        .select("display_order")
+        .eq("brand_id", data.brand_id)
+        .order("display_order", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const nextOrder = (maxRow?.display_order ?? -1) + 1;
+      const { error } = await context.supabase
+        .from("audit_sections")
+        .insert({ brand_id: data.brand_id, name: data.name, display_order: nextOrder });
+      if (error) throw new Error(error.message);
+    }
+    return { ok: true };
+  });
+
+export const deleteSection = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { error } = await context.supabase
+      .from("audit_sections")
+      .delete()
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 async function assertAdmin(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
