@@ -336,7 +336,7 @@ function UsersTab({ brands, stores, profiles, roles }: { brands: any[]; stores: 
         <div><Label>Role</Label>
           <Select value={role} onValueChange={setRole}><SelectTrigger><SelectValue/></SelectTrigger>
             <SelectContent>
-              {["store_manager","regional_manager","trainer","business_head","admin"].map((r) =>
+              {["store_manager","regional_manager","trainer","operations_head","business_head","admin"].map((r) =>
                 <SelectItem key={r} value={r}>{r.replace("_"," ")}</SelectItem>)}
             </SelectContent>
           </Select>
