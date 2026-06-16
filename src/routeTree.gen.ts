@@ -17,6 +17,7 @@ import { Route as AuthenticatedConductRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedConductIndexRouteImport } from './routes/_authenticated/conduct.index'
 import { Route as AuthenticatedConductEmployeeIdRouteImport } from './routes/_authenticated/conduct.$employeeId'
+import { Route as AuthenticatedConductStoreStoreIdRouteImport } from './routes/_authenticated/conduct.store.$storeId'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -59,6 +60,12 @@ const AuthenticatedConductEmployeeIdRoute =
     path: '/$employeeId',
     getParentRoute: () => AuthenticatedConductRoute,
   } as any)
+const AuthenticatedConductStoreStoreIdRoute =
+  AuthenticatedConductStoreStoreIdRouteImport.update({
+    id: '/store/$storeId',
+    path: '/store/$storeId',
+    getParentRoute: () => AuthenticatedConductRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/conduct/$employeeId': typeof AuthenticatedConductEmployeeIdRoute
   '/conduct/': typeof AuthenticatedConductIndexRoute
+  '/conduct/store/$storeId': typeof AuthenticatedConductStoreStoreIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -76,6 +84,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/conduct/$employeeId': typeof AuthenticatedConductEmployeeIdRoute
   '/conduct': typeof AuthenticatedConductIndexRoute
+  '/conduct/store/$storeId': typeof AuthenticatedConductStoreStoreIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -87,6 +96,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/conduct/$employeeId': typeof AuthenticatedConductEmployeeIdRoute
   '/_authenticated/conduct/': typeof AuthenticatedConductIndexRoute
+  '/_authenticated/conduct/store/$storeId': typeof AuthenticatedConductStoreStoreIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -98,6 +108,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/conduct/$employeeId'
     | '/conduct/'
+    | '/conduct/store/$storeId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -106,6 +117,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/conduct/$employeeId'
     | '/conduct'
+    | '/conduct/store/$storeId'
   id:
     | '__root__'
     | '/'
@@ -116,6 +128,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/conduct/$employeeId'
     | '/_authenticated/conduct/'
+    | '/_authenticated/conduct/store/$storeId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -182,17 +195,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConductEmployeeIdRouteImport
       parentRoute: typeof AuthenticatedConductRoute
     }
+    '/_authenticated/conduct/store/$storeId': {
+      id: '/_authenticated/conduct/store/$storeId'
+      path: '/store/$storeId'
+      fullPath: '/conduct/store/$storeId'
+      preLoaderRoute: typeof AuthenticatedConductStoreStoreIdRouteImport
+      parentRoute: typeof AuthenticatedConductRoute
+    }
   }
 }
 
 interface AuthenticatedConductRouteChildren {
   AuthenticatedConductEmployeeIdRoute: typeof AuthenticatedConductEmployeeIdRoute
   AuthenticatedConductIndexRoute: typeof AuthenticatedConductIndexRoute
+  AuthenticatedConductStoreStoreIdRoute: typeof AuthenticatedConductStoreStoreIdRoute
 }
 
 const AuthenticatedConductRouteChildren: AuthenticatedConductRouteChildren = {
   AuthenticatedConductEmployeeIdRoute: AuthenticatedConductEmployeeIdRoute,
   AuthenticatedConductIndexRoute: AuthenticatedConductIndexRoute,
+  AuthenticatedConductStoreStoreIdRoute: AuthenticatedConductStoreStoreIdRoute,
 }
 
 const AuthenticatedConductRouteWithChildren =
