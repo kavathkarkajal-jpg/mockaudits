@@ -68,6 +68,45 @@ export type Database = {
           },
         ]
       }
+      audit_section_scores: {
+        Row: {
+          created_at: string
+          id: string
+          score: number
+          section_id: string | null
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          score: number
+          section_id?: string | null
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          score?: number
+          section_id?: string | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_section_scores_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "audit_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_section_scores_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "audit_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_sections: {
         Row: {
           brand_id: string
