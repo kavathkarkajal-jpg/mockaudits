@@ -228,15 +228,30 @@ export function QuestionsTab({ brands }: { brands: Array<{ id: string; name: str
             {sections.length === 0 && (
               <div className="text-xs text-muted-foreground">No sections yet — questions appear under "Unsectioned".</div>
             )}
-            {sections.map((s) => (
-              <div key={s.id} className="flex items-center gap-1 rounded-md border bg-muted/30 pl-2 pr-1 py-0.5 text-sm">
-                <span>{s.name}</span>
-                <Button type="button" size="icon" variant="ghost" className="size-6"
-                  onClick={() => { if (confirm(`Delete section "${s.name}"? Questions inside will become Unsectioned.`)) delSectionMut.mutate(s.id); }}>
-                  <X className="size-3"/>
-                </Button>
-              </div>
-            ))}
+            {sections.map((s) => {
+              const count = list.filter((q) => q.section_id === s.id).length;
+              return (
+                <div key={s.id} className="flex items-center gap-1 rounded-md border bg-muted/30 pl-2 pr-1 py-0.5 text-sm">
+                  <span>{s.name}</span>
+                  <span className="text-xs text-muted-foreground">({count})</span>
+                  <Button type="button" size="icon" variant="ghost" className="size-6"
+                    onClick={() => {
+                      const next = prompt("Rename section", s.name);
+                      if (next && next.trim() && next.trim() !== s.name) {
+                        renameSectionMut.mutate({ id: s.id, name: next.trim() });
+                      }
+                    }}>
+                    <Pencil className="size-3"/>
+                  </Button>
+                  <Button type="button" size="icon" variant="ghost" className="size-6"
+                    disabled={count > 0}
+                    title={count > 0 ? "Move or delete its questions first" : "Delete section"}
+                    onClick={() => { if (confirm(`Delete section "${s.name}"?`)) delSectionMut.mutate(s.id); }}>
+                    <X className="size-3"/>
+                  </Button>
+                </div>
+              );
+            })}
           </div>
           <form
             className="flex gap-2"
