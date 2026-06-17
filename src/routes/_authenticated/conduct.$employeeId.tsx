@@ -100,6 +100,17 @@ function AuditPage() {
     enabled: !!brandId,
   });
 
+  const fetchSections = useServerFn(listSections);
+  const { data: allSections } = useQuery({
+    queryKey: ["sections-all"],
+    queryFn: () => fetchSections() as Promise<Array<{ id: string; brand_id: string; name: string }>>,
+  });
+  const sectionNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of allSections ?? []) m.set(s.id, s.name);
+    return m;
+  }, [allSections]);
+
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
   const [notes, setNotes] = useState("");
   const [result, setResult] = useState<{ score: number; sessionId: string; needsReaudit: boolean } | null>(null);
