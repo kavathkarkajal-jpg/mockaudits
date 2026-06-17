@@ -207,6 +207,13 @@ export function QuestionsTab({ brands }: { brands: Array<{ id: string; name: str
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const renameSectionMut = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      saveSection({ data: { id, brand_id: brandId, name } }),
+    onSuccess: () => { toast.success("Section renamed"); invBrand(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   useEffect(() => { resetForm(); }, [brandId]);
 
   return (
