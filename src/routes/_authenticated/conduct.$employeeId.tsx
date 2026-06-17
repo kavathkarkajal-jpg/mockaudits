@@ -215,6 +215,37 @@ function AuditPage() {
         </div>
         <div className="text-xs text-muted-foreground mt-1">Score (out of 100)</div>
 
+        {result.sectionScores && result.sectionScores.length > 0 && (() => {
+          const sorted = [...result.sectionScores].sort((a, b) => a.score - b.score);
+          const weak = sorted.filter((s) => s.score < 75);
+          const strong = sorted.filter((s) => s.score >= 75).sort((a, b) => b.score - a.score);
+          const label = (id: string | null) => (id ? sectionNameById.get(id) ?? "Section" : "Unsectioned");
+          const Row = ({ s, tone }: { s: { section_id: string | null; score: number }; tone: "weak" | "strong" }) => (
+            <div className="flex items-center justify-between text-sm py-1">
+              <span className="truncate">{label(s.section_id)}</span>
+              <span className={`font-semibold ${tone === "weak" ? "text-destructive" : "text-[oklch(0.55_0.14_150)]"}`}>
+                {Math.round(s.score)}%
+              </span>
+            </div>
+          );
+          return (
+            <div className="mt-5 text-left space-y-3">
+              {weak.length > 0 && (
+                <div className="rounded-xl border bg-muted/30 p-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Needs improvement</div>
+                  {weak.map((s) => <Row key={String(s.section_id)} s={s} tone="weak"/>)}
+                </div>
+              )}
+              {strong.length > 0 && (
+                <div className="rounded-xl border bg-muted/30 p-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Strong areas</div>
+                  {strong.map((s) => <Row key={String(s.section_id)} s={s} tone="strong"/>)}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {result.needsReaudit ? (
           <div className="mt-5 rounded-xl border border-destructive/50 bg-destructive/10 text-destructive p-4 text-left">
             <div className="flex items-start gap-2">
