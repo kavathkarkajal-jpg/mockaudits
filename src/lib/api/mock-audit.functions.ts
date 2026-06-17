@@ -91,6 +91,14 @@ export const submitAudit = createServerFn({ method: "POST" })
         employee_id: z.string().uuid(),
         score: z.number().min(0).max(100),
         notes: z.string().max(2000).optional(),
+        section_scores: z
+          .array(
+            z.object({
+              section_id: z.string().uuid().nullable(),
+              score: z.number().min(0).max(100),
+            }),
+          )
+          .optional(),
       })
       .parse(d),
   )
@@ -108,8 +116,36 @@ export const submitAudit = createServerFn({ method: "POST" })
       .select("id, score, submitted_at, week_start_date, needs_reaudit")
       .single();
     if (error) throw new Error(error.message);
-    return row;
+
+    let section_scores: Array<{ section_id: string | null; score: number }> = [];
+    if (data.section_scores && data.section_scores.length > 0) {
+      const rows = data.section_scores.map((s) => ({
+        session_id: row.id,
+        section_id: s.section_id,
+        score: s.score,
+      }));
+      const { data: inserted, error: sErr } = await supabase
+        .from("audit_section_scores")
+        .insert(rows)
+        .select("section_id, score");
+      if (sErr) throw new Error(sErr.message);
+      section_scores = (inserted ?? []).map((r) => ({ section_id: r.section_id, score: Number(r.score) }));
+    }
+    return { ...row, section_scores };
   });
+
+export const getSessionSectionScores = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ session_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("audit_section_scores")
+      .select("section_id, score")
+      .eq("session_id", data.session_id);
+    if (error) throw new Error(error.message);
+    return (rows ?? []).map((r) => ({ section_id: r.section_id, score: Number(r.score) }));
+  });
+
 
 // ------- Toggle re-audit flag -------
 export const toggleReauditFlag = createServerFn({ method: "POST" })
