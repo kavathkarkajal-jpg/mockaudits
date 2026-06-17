@@ -113,7 +113,7 @@ function AuditPage() {
 
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
   const [notes, setNotes] = useState("");
-  const [result, setResult] = useState<{ score: number; sessionId: string; needsReaudit: boolean } | null>(null);
+  const [result, setResult] = useState<{ score: number; sessionId: string; needsReaudit: boolean; sectionScores: Array<{ section_id: string | null; score: number }> } | null>(null);
 
   useEffect(() => {
     if (!questions) return;
