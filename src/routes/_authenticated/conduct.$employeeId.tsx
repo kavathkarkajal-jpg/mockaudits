@@ -125,9 +125,8 @@ function AuditPage() {
     [answers, questions],
   );
 
-  const computedScore = useMemo(() => {
-    if (!questions || questions.length === 0) return 0;
-    const scored = questions.filter((q) => {
+  const scoreFor = (qs: Q[]) => {
+    const scored = qs.filter((q) => {
       const max = Number(q.max_score) || computeMaxScore(q.question_type, q.options);
       return max > 0;
     });
@@ -140,6 +139,27 @@ function AuditPage() {
       return s + (Math.max(0, earned) / max) * 100;
     }, 0);
     return sum / scored.length;
+  };
+
+  const computedScore = useMemo(() => {
+    if (!questions || questions.length === 0) return 0;
+    return scoreFor(questions);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, questions]);
+
+  const sectionScores = useMemo(() => {
+    if (!questions || questions.length === 0) return [] as Array<{ section_id: string | null; score: number }>;
+    const groups = new Map<string | null, Q[]>();
+    for (const q of questions) {
+      const key = q.section_id ?? null;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(q);
+    }
+    return Array.from(groups.entries()).map(([section_id, qs]) => ({
+      section_id,
+      score: Number(scoreFor(qs).toFixed(1)),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answers, questions]);
 
   const mutation = useMutation({
@@ -149,6 +169,7 @@ function AuditPage() {
           employee_id: employeeId,
           score: Number(computedScore.toFixed(1)),
           notes: notes || undefined,
+          section_scores: sectionScores,
         },
       }),
     onSuccess: (r) => {
