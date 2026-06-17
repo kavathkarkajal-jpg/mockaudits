@@ -33,6 +33,7 @@ type Q = {
   options: unknown;
   required: boolean;
   max_score: number;
+  section_id: string | null;
 };
 
 const AVATAR_PALETTE = [
