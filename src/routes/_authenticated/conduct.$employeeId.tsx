@@ -185,7 +185,7 @@ function AuditPage() {
         },
       }),
     onSuccess: (r) => {
-      setResult({ score: Number(r.score), sessionId: r.id, needsReaudit: !!r.needs_reaudit });
+      setResult({ score: Number(r.score), sessionId: r.id, needsReaudit: !!r.needs_reaudit, sectionScores: r.section_scores ?? sectionScores });
       qc.invalidateQueries({ queryKey: ["employees"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Audit submitted");
