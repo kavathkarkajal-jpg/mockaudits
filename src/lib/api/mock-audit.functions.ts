@@ -283,6 +283,37 @@ export const getDashboard = createServerFn({ method: "GET" })
       };
     });
 
+    // Section averages across audits in scope (last 8 weeks)
+    const { data: sectionRows } = empIds.length
+      ? await supabase
+          .from("audit_section_scores")
+          .select("score, section_id, audit_sections(name, brand_id), audit_sessions!inner(employee_id, week_start_date)")
+          .gte("audit_sessions.week_start_date", weeks[0])
+          .in("audit_sessions.employee_id", empIds)
+      : { data: [] as Array<{ score: number; section_id: string | null; audit_sections: { name: string; brand_id: string } | null; audit_sessions: { employee_id: string; week_start_date: string } | null }> };
+
+    const sectionAgg = new Map<string, { section_id: string; section_name: string; brand_id: string | null; total: number; count: number }>();
+    (sectionRows ?? []).forEach((r) => {
+      if (!r.section_id || !r.audit_sections) return;
+      const cur = sectionAgg.get(r.section_id) ?? {
+        section_id: r.section_id,
+        section_name: r.audit_sections.name,
+        brand_id: r.audit_sections.brand_id ?? null,
+        total: 0,
+        count: 0,
+      };
+      cur.total += Number(r.score);
+      cur.count += 1;
+      sectionAgg.set(r.section_id, cur);
+    });
+    const sectionStats = Array.from(sectionAgg.values()).map((s) => ({
+      section_id: s.section_id,
+      section_name: s.section_name,
+      brand_id: s.brand_id,
+      avg: s.count ? Math.round((s.total / s.count) * 10) / 10 : 0,
+      count: s.count,
+    }));
+
     return {
       monday,
       summary: {
@@ -294,6 +325,7 @@ export const getDashboard = createServerFn({ method: "GET" })
       },
       brandStats,
       storeStats,
+      sectionStats,
       trend,
     };
   });
