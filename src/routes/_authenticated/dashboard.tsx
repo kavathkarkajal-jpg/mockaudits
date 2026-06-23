@@ -478,6 +478,51 @@ function DashboardPage() {
           </ul>
         )}
       </Panel>
+
+      <Panel
+        title="Section Comparison by Store"
+        subtitle={brandFilter === "all" ? "All brands — per-store overall score and weakest section (last 8 weeks)" : "Per-store overall score and weakest section (last 8 weeks)"}
+        icon={<ShieldAlert className="size-4" />}
+      >
+        <div className="overflow-x-auto -mx-5">
+          <table className="w-full text-sm border-separate border-spacing-0">
+            <thead>
+              <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground/80">
+                <th className="py-3 pl-5 pr-4 font-semibold">Store</th>
+                <th className="py-3 pr-4 font-semibold text-right">Overall Score</th>
+                <th className="py-3 pr-4 font-semibold">Lowest Section</th>
+                <th className="py-3 pr-5 font-semibold text-right">Lowest Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...filteredStoreSections]
+                .filter((s) => s.audit_count > 0)
+                .sort((a, b) => (a.lowest_section_score ?? 999) - (b.lowest_section_score ?? 999))
+                .map((s, idx) => (
+                  <tr key={s.store_id} className={idx % 2 === 1 ? "bg-muted/20" : ""}>
+                    <td className="py-3 pl-5 pr-4 border-t border-border/60 font-medium">
+                      {s.store_name} <span className="text-muted-foreground text-xs">({s.store_code})</span>
+                    </td>
+                    <td className="py-3 pr-4 border-t border-border/60 text-right tabular-nums font-semibold">
+                      {s.overall_avg ?? "—"}{s.overall_avg !== null ? "%" : ""}
+                    </td>
+                    <td className="py-3 pr-4 border-t border-border/60">{s.lowest_section_name ?? "—"}</td>
+                    <td className="py-3 pr-5 border-t border-border/60 text-right tabular-nums">
+                      {s.lowest_section_score !== null ? `${s.lowest_section_score}%` : "—"}
+                    </td>
+                  </tr>
+                ))}
+              {filteredStoreSections.filter((s) => s.audit_count > 0).length === 0 && (
+                <tr>
+                  <td colSpan={4} className="py-12 text-center text-muted-foreground border-t border-border/60">
+                    No store audit data available.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
     </div>
   );
 }
