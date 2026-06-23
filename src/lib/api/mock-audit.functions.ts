@@ -314,6 +314,53 @@ export const getDashboard = createServerFn({ method: "GET" })
       count: s.count,
     }));
 
+    // Per-store overall avg (last 8 weeks)
+    const storeOverallAgg = new Map<string, { total: number; count: number }>();
+    (weekSessions ?? []).forEach((s) => {
+      const storeId = empToStore.get(s.employee_id);
+      if (!storeId) return;
+      const cur = storeOverallAgg.get(storeId) ?? { total: 0, count: 0 };
+      cur.total += Number(s.score);
+      cur.count += 1;
+      storeOverallAgg.set(storeId, cur);
+    });
+
+    // Per-store per-section avg
+    const storeSectionAgg = new Map<string, Map<string, { name: string; total: number; count: number }>>();
+    (sectionRows ?? []).forEach((r) => {
+      if (!r.section_id || !r.audit_sections || !r.audit_sessions) return;
+      const storeId = empToStore.get(r.audit_sessions.employee_id);
+      if (!storeId) return;
+      let m = storeSectionAgg.get(storeId);
+      if (!m) { m = new Map(); storeSectionAgg.set(storeId, m); }
+      const cur = m.get(r.section_id) ?? { name: r.audit_sections.name, total: 0, count: 0 };
+      cur.total += Number(r.score);
+      cur.count += 1;
+      m.set(r.section_id, cur);
+    });
+
+    const storeSectionStats = (stores ?? []).map((s) => {
+      const overall = storeOverallAgg.get(s.id);
+      const sectionMap = storeSectionAgg.get(s.id);
+      let lowest: { section_id: string; section_name: string; avg: number } | null = null;
+      if (sectionMap) {
+        for (const [section_id, v] of sectionMap.entries()) {
+          const avg = v.count ? Math.round((v.total / v.count) * 10) / 10 : 0;
+          if (!lowest || avg < lowest.avg) lowest = { section_id, section_name: v.name, avg };
+        }
+      }
+      return {
+        store_id: s.id,
+        store_name: s.store_name,
+        store_code: s.store_code,
+        brand_id: s.brand_id,
+        overall_avg: overall && overall.count ? Math.round((overall.total / overall.count) * 10) / 10 : null,
+        audit_count: overall?.count ?? 0,
+        lowest_section_name: lowest?.section_name ?? null,
+        lowest_section_score: lowest?.avg ?? null,
+      };
+    });
+
     return {
       monday,
       summary: {
@@ -326,9 +373,11 @@ export const getDashboard = createServerFn({ method: "GET" })
       brandStats,
       storeStats,
       sectionStats,
+      storeSectionStats,
       trend,
     };
   });
+
 
 
 // ------- ADMIN: lists -------
