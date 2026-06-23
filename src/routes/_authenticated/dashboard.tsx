@@ -414,6 +414,41 @@ function DashboardPage() {
           </Panel>
         );
       })()}
+
+      {/* Section performance */}
+      <Panel
+        title="Section Performance"
+        subtitle={`Average score by section across ${filteredSections.reduce((a, s) => a + s.count, 0)} audit response${filteredSections.reduce((a, s) => a + s.count, 0) === 1 ? "" : "s"} (last 8 weeks)`}
+        icon={<TrendingUp className="size-4" />}
+      >
+        <div className="overflow-x-auto -mx-5">
+          <table className="w-full text-sm border-separate border-spacing-0">
+            <thead>
+              <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground/80">
+                <th className="py-3 pl-5 pr-4 font-semibold">Section</th>
+                <th className="py-3 pr-4 font-semibold text-right">Average Score</th>
+                <th className="py-3 pr-5 font-semibold text-right">Audit Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...filteredSections].sort((a, b) => a.avg - b.avg).map((s, idx) => (
+                <tr key={s.section_id} className={idx % 2 === 1 ? "bg-muted/20" : ""}>
+                  <td className="py-3 pl-5 pr-4 border-t border-border/60 font-medium">{s.section_name}</td>
+                  <td className="py-3 pr-4 border-t border-border/60 text-right tabular-nums font-semibold">{s.avg}%</td>
+                  <td className="py-3 pr-5 border-t border-border/60 text-right tabular-nums text-muted-foreground">{s.count}</td>
+                </tr>
+              ))}
+              {filteredSections.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="py-12 text-center text-muted-foreground border-t border-border/60">
+                    No section data available.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
     </div>
   );
 }
