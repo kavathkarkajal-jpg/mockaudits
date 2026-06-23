@@ -29,6 +29,10 @@ function DashboardPage() {
     () => (brandFilter === "all" ? data?.storeStats ?? [] : (data?.storeStats ?? []).filter((s) => s.brand_id === brandFilter)),
     [data, brandFilter],
   );
+  const filteredSections = useMemo(
+    () => (brandFilter === "all" ? data?.sectionStats ?? [] : (data?.sectionStats ?? []).filter((s) => s.brand_id === brandFilter)),
+    [data, brandFilter],
+  );
   const summary = useMemo(() => {
     if (brandFilter === "all") return data?.summary;
     const due = filteredBrands.reduce((a, b) => a + b.due, 0);
