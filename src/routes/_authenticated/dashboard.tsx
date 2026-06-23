@@ -449,6 +449,31 @@ function DashboardPage() {
           </table>
         </div>
       </Panel>
+
+      <Panel
+        title="Insights: Lowest Scoring Sections"
+        subtitle="Top 5 sections needing attention (last 8 weeks)"
+        icon={<AlertTriangle className="size-4" />}
+      >
+        {filteredSections.length === 0 ? (
+          <div className="py-12 text-center text-muted-foreground">No section data available.</div>
+        ) : (
+          <ul className="divide-y divide-border/60">
+            {[...filteredSections].sort((a, b) => a.avg - b.avg).slice(0, 5).map((s, idx) => (
+              <li key={s.section_id} className="flex items-center justify-between py-3 px-1">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-semibold text-muted-foreground tabular-nums w-5">{idx + 1}.</span>
+                  <span className="font-medium">{s.section_name}</span>
+                </div>
+                <div className="flex items-center gap-4 text-sm tabular-nums">
+                  <span className="font-semibold">{s.avg}%</span>
+                  <span className="text-muted-foreground">{s.count} audit{s.count === 1 ? "" : "s"}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
     </div>
   );
 }
