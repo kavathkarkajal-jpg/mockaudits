@@ -473,11 +473,25 @@ function QuestionInput({ q, answer, onChange }: { q: Q; answer: Answer; onChange
   if (t === "yes_no" && answer.kind === "yes_no") {
     return (
       <div className="flex gap-2">
-        {(["yes", "no"] as const).map((v) => (
-          <Button key={v} type="button" size="sm" variant={answer.value === v ? "default" : "outline"} onClick={() => onChange({ kind: "yes_no", value: v })}>
-            {v === "yes" ? "Yes" : "No"}
-          </Button>
-        ))}
+        {(["yes", "no"] as const).map((v) => {
+          const selected = answer.value === v;
+          const selectedClass =
+            v === "yes"
+              ? "bg-success text-success-foreground hover:bg-success/90 border-transparent"
+              : "bg-destructive text-destructive-foreground hover:bg-destructive/90 border-transparent";
+          return (
+            <Button
+              key={v}
+              type="button"
+              size="sm"
+              variant="outline"
+              className={selected ? selectedClass : undefined}
+              onClick={() => onChange({ kind: "yes_no", value: v })}
+            >
+              {v === "yes" ? "Yes" : "No"}
+            </Button>
+          );
+        })}
       </div>
     );
   }
